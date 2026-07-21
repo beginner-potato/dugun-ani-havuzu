@@ -97,9 +97,9 @@ export default function WeddingUploadPage({ params }: { params: Promise<{ slug: 
 
       setSuccess(true);
     } catch (err: any) {
-      console.err(err);
-      setError(err.message || 'Bir hata oluştu.');
-    } finally {
+  console.error(err);
+  setError(err.message || 'Bir hata oluştu.');
+} finally {
       setUploading(false);
       setProgressText('');
     }
