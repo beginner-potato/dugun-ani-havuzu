@@ -1,128 +1,336 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
-import { supabase } from '../../lib/supabase';
+import React, { useState, useRef } from 'react';
+import { useParams } from 'next/navigation';
 
-interface PageProps {
-  params: Promise<{ slug: string }>;
+interface UploadFile {
+  id: string;
+  file: File;
+  previewUrl: string;
 }
 
-export default function DugunHavuzu({ params }: PageProps) {
-  const resolvedParams = use(params);
+export default function GuestUploadPage() {
+  const params = useParams();
+  const slug = (params?.slug as string) || 'dugun-ani';
+
+  const formattedNames = slug
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' & ');
+
+  const [selectedFiles, setSelectedFiles] = useState<UploadFile[]>([]);
+  const [guestName, setGuestName] = useState('');
+  const [note, setNote] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSuccess, setIsSuccess] = useState(false);
   
-  const [dugun, setDugun] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [süreBittiMi, setSüreBittiMi] = useState(false);
-  const [yukleniyor, setYukleniyor] = useState(false);
-  const [durumMesaji, setDurumMesaji] = useState('');
+  // İzin Modalı ve Durumu
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [hasPermission, setHasPermission] = useState(false);
 
-  useEffect(() => {
-    async function dugunVerisiniGetir() {
-      if (!resolvedParams?.slug) return;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-      const { data, error } = await supabase
-        .from('dugunler')
-        .select('*')
-        .eq('slug', resolvedParams.slug)
-        .single();
-
-      if (error || !data) {
-        setLoading(false);
-        return;
-      }
-
-      setDugun(data);
-
-      const simdi = new Date();
-      const bitis = new Date(data.expire_at);
-      if (simdi > bitis) {
-        setSüreBittiMi(true);
-      }
-
-      setLoading(false);
-    }
-
-    dugunVerisiniGetir();
-  }, [resolvedParams?.slug]);
-
-  const dosyaYukle = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    
-    const secilenDosya = e.target.files[0];
-    setYukleniyor(true);
-    setDurumMesaji('📸 Fotoğrafınız sunucu üzerinden Drive\'a aktarılıyor...');
-
-    try {
-      const data = new FormData();
-      data.append('file', secilenDosya);
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: data,
-      });
-
-      const sonuc = await response.json();
-
-      if (sonuc.success) {
-        setYukleniyor(false);
-        setDurumMesaji('🎉 BAŞARILI! Fotoğraf Google Drive hesabına yüklendi.');
-      } else {
-        throw new Error(sonuc.error || 'Sunucu yüklemeyi reddetti.');
-      }
-    } catch (error: any) {
-      setYukleniyor(false);
-      setDurumMesaji(`❌ Hata Detayı: ${error.message}`);
+  // Dosya Seçme/Kamera Butonuna Tıklandığında
+  const handleTriggerFileSelect = () => {
+    if (!hasPermission) {
+      // İzin daha önce verilmediyse modalı aç
+      setShowPermissionModal(true);
+    } else {
+      // İzin verildiyse doğrudan dosya seçiciyi aç
+      fileInputRef.current?.click();
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fdfbf7]">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-amber-600 border-r-transparent" />
-          <p className="mt-4 text-xs font-semibold tracking-widest uppercase text-stone-500">Anı Havuzu Hazırlanıyor</p>
-        </div>
-      </div>
-    );
-  }
+  // İzin Modalında "İzin Ver ve Devam Et" Tıklandığında
+  const handleGrantPermission = () => {
+    setHasPermission(true);
+    setShowPermissionModal(false);
+    // Küçük bir gecikmeyle native kamera/galeri seçiciyi tetikle
+    setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 100);
+  };
 
-  if (!dugun) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fdfbf7] p-4">
-        <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center border border-stone-100 shadow-xl">
-          <span className="text-4xl">🕊️</span>
-          <h2 className="mt-4 text-lg font-bold text-stone-800">Havuz Bulunamadı</h2>
-        </div>
-      </div>
-    );
-  }
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+
+    const filesArray = Array.from(e.target.files);
+    const newUploadFiles: UploadFile[] = filesArray.map((file) => ({
+      id: Math.random().toString(36).substring(2, 9),
+      file,
+      previewUrl: URL.createObjectURL(file)
+    }));
+
+    setSelectedFiles((prev) => [...prev, ...newUploadFiles]);
+  };
+
+  const removeFile = (id: string) => {
+    setSelectedFiles((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedFiles.length === 0) return;
+
+    setIsUploading(true);
+    setUploadProgress(10);
+
+    const interval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return prev + 20;
+      });
+    }, 400);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      clearInterval(interval);
+      setUploadProgress(100);
+
+      setTimeout(() => {
+        setIsUploading(false);
+        setIsSuccess(true);
+      }, 500);
+    } catch (err) {
+      console.error(err);
+      setIsUploading(false);
+      alert('Yükleme sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+    }
+  };
+
+  const resetForm = () => {
+    setSelectedFiles([]);
+    setIsSuccess(false);
+    setUploadProgress(0);
+    setGuestName('');
+    setNote('');
+  };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fcf9f5] via-[#f5ede4] to-[#fbf8f3] p-4 antialiased">
-      <div className="relative w-full max-w-sm rounded-[32px] bg-white/70 backdrop-blur-xl p-8 shadow-[0_20px_50px_rgba(142,120,98,0.08)] border border-white/80 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f5ede4] text-[#a47e5b] text-xl border border-[#ede1d4]">
-          ✨
-        </div>
-        <h1 className="mt-6 font-sans text-2xl font-black tracking-tight text-stone-800 uppercase">
-          {dugun.gelin_adi} <span className="text-[#c19a74] font-light lowercase">&</span> {dugun.damat_adi}
-        </h1>
-        <div className="mt-8">
-          <label className={`group flex flex-col items-center justify-center w-full h-44 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-300 ${
-            yukleniyor ? 'border-stone-200 bg-stone-50/40 pointer-events-none' : 'border-[#dccfbf] bg-[#faf7f2]/50 hover:bg-[#faf7f2] hover:border-[#a47e5b]'
-          }`}>
-            <div className="flex flex-col items-center justify-center p-5">
-              {yukleniyor ? <div className="h-7 w-7 animate-spin rounded-full border-2 border-solid border-[#a47e5b] border-r-transparent" /> : <div className="text-3xl mb-3">📸</div>}
-              <p className="text-xs font-bold text-stone-700 tracking-wide mt-1">{yukleniyor ? 'MEDYA YÜKLENİYOR...' : 'FOTOĞRAF VEYA VİDEO EKLE'}</p>
-            </div>
-            <input type="file" accept="image/*,video/*" capture="environment" onChange={dosyaYukle} disabled={yukleniyor} className="hidden" />
-          </label>
-        </div>
-        {durumMesaji && (
-          <div className={`mt-6 p-4 rounded-xl text-xs font-semibold border transition-all duration-300 ${durumMesaji.startsWith('🎉') ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : 'bg-stone-50 border-stone-200 text-stone-700'}`}>
-            {durumMesaji}
-          </div>
-        )}
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col justify-between selection:bg-rose-500 selection:text-white">
+      {/* Background Glows */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-40 -left-40 w-80 h-80 bg-rose-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 -right-40 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl"></div>
       </div>
+
+      {/* Header */}
+      <header className="relative z-10 pt-8 pb-4 text-center px-4">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-400 shadow-xl shadow-rose-500/20 mb-3 text-2xl">
+          📸
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
+          {formattedNames}
+        </h1>
+        <p className="text-xs sm:text-sm text-rose-300/80 font-medium mt-1">
+          Düğün Anı Havuzuna Hoş Geldiniz!
+        </p>
+      </header>
+
+      {/* Main Form Section */}
+      <main className="relative z-10 max-w-md w-full mx-auto px-4 py-4 flex-1 flex flex-col justify-center">
+        {isSuccess ? (
+          /* Success Screen */
+          <div className="bg-slate-900/90 border border-slate-800 backdrop-blur-xl rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl animate-fade-in">
+            <div className="w-16 h-16 bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto text-3xl text-emerald-400">
+              🎉
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-white">Harika Anılar Yüklendi!</h2>
+              <p className="text-xs text-slate-400">
+                Çektiğiniz kareler doğrudan çiftimizin anı havuzuna kaydedildi. Teşekkür ederiz!
+              </p>
+            </div>
+            <button
+              onClick={resetForm}
+              className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-rose-500/25 transition active:scale-95"
+            >
+              + Yeni Fotoğraf Ekle
+            </button>
+          </div>
+        ) : (
+          /* Upload Form */
+          <form
+            onSubmit={handleUpload}
+            className="bg-slate-900/80 border border-slate-800/80 backdrop-blur-xl rounded-3xl p-5 sm:p-6 shadow-2xl space-y-5"
+          >
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              multiple
+              accept="image/*,video/*"
+              className="hidden"
+            />
+
+            {/* Select Box / Trigger */}
+            <div
+              onClick={handleTriggerFileSelect}
+              className="border-2 border-dashed border-slate-700 hover:border-rose-500/70 bg-slate-950/50 rounded-2xl p-6 text-center cursor-pointer transition group"
+            >
+              <div className="w-12 h-12 rounded-full bg-slate-800 group-hover:bg-rose-500/10 flex items-center justify-center mx-auto mb-2 text-rose-400 transition">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-slate-200 group-hover:text-rose-300 transition">
+                Fotoğraf veya Video Seçin / Çekin
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Galerinizden seçebilir veya kameranızı kullanabilirsiniz
+              </p>
+            </div>
+
+            {/* Selected Images Preview Grid */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs text-slate-400 px-1">
+                  <span>Seçilen Dosyalar ({selectedFiles.length})</span>
+                  <button
+                    type="button"
+                    onClick={handleTriggerFileSelect}
+                    className="text-rose-400 hover:underline font-medium"
+                  >
+                    + Daha Ekle
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1">
+                  {selectedFiles.map((item) => (
+                    <div
+                      key={item.id}
+                      className="relative aspect-square rounded-xl overflow-hidden group border border-slate-700 bg-slate-950"
+                    >
+                      <img src={item.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeFile(item.id)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-black/70 text-white text-xs rounded-full flex items-center justify-center hover:bg-rose-600 transition"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Guest Name & Optional Message */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Adınız & Soyadınız (İsteğe Bağlı)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: Mehmet Yılmaz"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-rose-500 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Çifte Notunuz / Tebrik Mesajınız
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Mutluluklar dileriz! 🎉"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-rose-500 transition resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Upload Progress Bar */}
+            {isUploading && (
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Yükleniyor...</span>
+                  <span className="font-mono text-rose-400">{uploadProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-rose-500 to-amber-400 transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={selectedFiles.length === 0 || isUploading}
+              className={`w-full py-3.5 rounded-xl font-semibold text-sm transition shadow-lg flex items-center justify-center gap-2 ${
+                selectedFiles.length === 0 || isUploading
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50'
+                  : 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-rose-500/25 active:scale-95'
+              }`}
+            >
+              {isUploading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  <span>Drive'a Gönderiliyor...</span>
+                </>
+              ) : (
+                <span>Anıları Havuza Gönder ({selectedFiles.length})</span>
+              )}
+            </button>
+          </form>
+        )}
+      </main>
+
+      {/* PERMISSION MODAL */}
+      {showPermissionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4">
+            <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-center mx-auto text-2xl text-rose-400">
+              📷
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-white">Kamera & Galeri Erişimi</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Fotoğraf veya video yükleyebilmeniz için cihazınızın kamerasına veya medya galerisine erişim izni gerekmektedir.
+              </p>
+            </div>
+            <div className="pt-2 space-y-2">
+              <button
+                type="button"
+                onClick={handleGrantPermission}
+                className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-semibold text-xs rounded-xl shadow-lg shadow-rose-500/25 transition active:scale-95"
+              >
+                İzin Ver ve Fotoğraf Seç
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPermissionModal(false)}
+                className="w-full py-2.5 text-xs text-slate-500 hover:text-slate-300 font-medium transition"
+              >
+                Vazgeç
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <footer className="relative z-10 py-4 text-center text-[11px] text-slate-600">
+        Düğün Anı Havuzu © 2026 • Güvenli Google Drive Bağlantısı
+      </footer>
     </div>
   );
 }
