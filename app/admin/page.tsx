@@ -59,6 +59,37 @@ export default function AdminDashboard() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Oturum açıldıktan sonra Supabase'den düğünleri çek
+  useEffect(() => {
+    if (session) {
+      fetchWeddings();
+    }
+  }, [session]);
+
+  const fetchWeddings = async () => {
+    const { data, error } = await supabase
+      .from('dugunler')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Düğünler çekilemedi:', error);
+    } else if (data) {
+      const formatted = data.map((item: any) => ({
+        id: item.id,
+        // Gelin ve Damat adını tek bir string'de birleştiriyoruz
+        coupleNames: `${item.gelin_adi || ''} & ${item.damat_adi || ''}`,
+        slug: item.slug,
+        date: item.created_at ? item.created_at.split('T')[0] : '2026-08-15',
+        photoCount: 0, // Şimdilik 0
+        maxPhotos: 500, // Şimdilik 500
+        status: 'active',
+        driveUrl: item.drive_folder_id || ''
+      }));
+      setWeddings(formatted);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -103,26 +134,38 @@ export default function AdminDashboard() {
     setNewSlug(generatedSlug);
   };
 
-  const handleCreateWedding = (e: React.FormEvent) => {
+  const handleCreateWedding = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCouple || !newSlug) return;
 
-    const newEntry: Wedding = {
-      id: Date.now().toString(),
-      coupleNames: newCouple,
+    // İsmi "Ayşe & Ahmet" şeklinde girildiyse ayırıyoruz
+    const names = newCouple.split('&').map((n) => n.trim());
+    const gelinAdi = names[0] || newCouple;
+    const damatAdi = names[1] || '';
+
+    // Supabase'deki dugunler tablosuna uygun obje hazırlıyoruz
+    const newEntry = {
+      gelin_adi: gelinAdi,
+      damat_adi: damatAdi,
       slug: newSlug,
-      date: newDate || new Date().toISOString().split('T')[0],
-      photoCount: 0,
-      maxPhotos: Number(newMaxPhotos),
-      status: 'scheduled'
+      drive_folder_id: '' // Klasör ID'sini ileride Drive entegrasyonu ile doldurabiliriz
     };
 
-    setWeddings([newEntry, ...weddings]);
+    const { error } = await supabase.from('dugunler').insert([newEntry]);
+
+    if (error) {
+      console.error('Kayıt hatası:', error);
+      showToast('❌ Hata: Bu web adresi (slug) zaten alınmış olabilir!');
+      return;
+    }
+
+    // Başarılı olursa listeyi tekrar çekip formu temizliyoruz
+    fetchWeddings();
     setIsAddModalOpen(false);
     setNewCouple('');
     setNewSlug('');
     setNewDate('');
-    showToast('🎉 Yeni düğün havuzu başarıyla oluşturuldu!');
+    showToast('🎉 Yeni düğün Supabase veritabanına kaydedildi!');
   };
 
   const copyToClipboard = (slug: string) => {
