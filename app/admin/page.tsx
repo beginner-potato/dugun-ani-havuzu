@@ -225,9 +225,13 @@ export default function AdminDashboard() {
               Google Drive Bağlı
             </span>
             <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition cursor-pointer"
-              >
+              type="button"
+              onClick={() => {
+                console.log("Çıkış butonuna tıklandı!");
+                handleLogout();
+              }}
+              className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition cursor-pointer relative z-50"
+            >
               Çıkış Yap
             </button>
           </div>
