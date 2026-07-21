@@ -20,7 +20,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Google'ın takılmaması için text/plain olarak yollayıp script içinde parse ediyoruz
     const response = await fetch(scriptUrl, {
       method: 'POST',
       headers: {
