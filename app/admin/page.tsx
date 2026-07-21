@@ -510,17 +510,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-``` eof
-
-### 🌟 Neler Eklendi & Özellikler:
-1. **İstatistik Özeti:** Toplam düğün, aktif canlı havuzlar, toplam fotoğraf adedi ve Drive kota durumu canlı olarak görünür.
-2. **Düğün Yönetimi:** Arama çubuğu ve duruma göre filtreleme (Aktif, Bekliyor, Bitti).
-3. **Yeni Düğün Ekleme Modalı:** Gelin & Damat ismi yazıldığında slug otomatik üretilir (`/ayse-ahmet`).
-4. **Yazdırılabilir QR Kodu Kartı Modalı:** Düğün masalarına konulacak şık QR kod tasarımını anında oluşturur ve yazdırma seçeneği sunar.
-5. **Aksiyon Butonları:** Google Drive klasörüne doğrudan erişim linki ve yükleme linkini kopyalama özellikleri dahildir.
-
-Bu kodları kaydettikten sonra VS Code terminalinden:
-```bash
-git add .
-git commit -m "feat: admin paneli eklendi"
-git push -u origin main
