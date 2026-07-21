@@ -68,7 +68,13 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+      setSession(null);
+      window.location.href = '/admin';
+    } catch (err) {
+      console.error('Çıkış yaparken hata oluştu:', err);
+    }
   };
 
   const showToast = (msg: string) => {
@@ -219,11 +225,11 @@ export default function AdminDashboard() {
               Google Drive Bağlı
             </span>
             <button
-  onClick={handleLogout}
-  className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition cursor-pointer"
->
-  Çıkış Yap
-</button>
+              onClick={handleLogout}
+              className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition cursor-pointer"
+              >
+              Çıkış Yap
+            </button>
           </div>
         </div>
       </header>
