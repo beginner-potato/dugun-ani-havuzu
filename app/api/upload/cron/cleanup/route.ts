@@ -1,47 +1,70 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '../../../../../lib/supabase'; // Burası tam tutmuyorsa bir tane eksilt veya artır
+import { createClient } from '@supabase/supabase-js';
 
-export async function GET(request: Request) {
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+export async function POST(request: Request) {
   try {
-    // Güvenlik Önlemi: İstek gerçekten Vercel Cron sisteminden mi geliyor kontrolü
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Yetkisiz erişim denemesi' }, { status: 401 });
+    const body = await request.json();
+    const { groomName, brideName, slug, storageDuration } = body;
+
+    // Temiz ve benzersiz slug oluştur (Çakışma riskini sıfıra indirmek için)
+    let cleanSlug = (slug || `${groomName}-${brideName}`)
+      .toLowerCase()
+      .trim()
+      .replace(/ğ/g, 'g')
+      .replace(/ü/g, 'u')
+      .replace(/ş/g, 's')
+      .replace(/ı/g, 'i')
+      .replace(/ö/g, 'o')
+      .replace(/ç/g, 'c')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-');
+
+    // Eğer slug boş kaldıysa varsayılan ver
+    if (!cleanSlug) {
+      cleanSlug = `dugun-${Date.now().toString().slice(-4)}`;
     }
 
-    const simdi = new Date().toISOString();
+    // Veritabanında slug kontrolü yap
+    const { data: existing } = await supabase
+      .from('weddings')
+      .select('id')
+      .eq('slug', cleanSlug)
+      .maybeSingle();
 
-    // 1. Süresi dolmuş VE henüz temizlenmemiş düğünleri buluyoruz
-    const { data: silinecekDugunler, error: fetchError } = await supabase
-      .from('dugunler')
-      .select('*')
-      .lte('drive_delete_at', simdi) // drive_delete_at tarihi bugünden küçük veya eşit olanlar
-      .is('is_deleted', false); // Daha önce silinmemiş olanlar
-
-    if (fetchError) throw fetchError;
-    if (!silinecekDugunler || silinecekDugunler.length === 0) {
-      return NextResponse.json({ success: true, message: 'Bugün temizlenecek süresi dolmuş klasör bulunamadı.' });
+    // Eğer bu slug varsa, sonuna benzersiz küçük bir rastgele sayı ekle ki asla hata vermesin!
+    if (existing) {
+      cleanSlug = `${cleanSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
-    // 2. Her süresi dolan düğün için Drive temizliği döngüsü
-    for (const dugun of silinecekDugunler) {
-      
-      // ⚠️ BURASI KRİTİK: İleride Google Drive entegrasyonunu bağladığımızda 
-      // buraya klasörü/dosyaları silen Drive API kodunu gömeceğiz:
-      // await googleDriveKlasorSil(dugun.drive_folder_id);
-      
-      console.log(`Drive silme işlemi tetiklendi: ${dugun.gelin_adi} & ${dugun.damat_adi}`);
+    // Supabase'e ekle
+    const { data, error } = await supabase
+      .from('weddings')
+      .insert([
+        {
+          groom_name: groomName,
+          bride_name: brideName,
+          slug: cleanSlug,
+          storage_duration: storageDuration || '7_days',
+          status: 'active',
+          created_at: new Date().toISOString()
+        }
+      ])
+      .select()
+      .single();
 
-      // 3. Drive'dan silme komutu başarıyla gidince Supabase'de havuzu "silindi" olarak işaretliyoruz
-      await supabase
-        .from('dugunler')
-        .update({ is_deleted: true }) // Tablona boolean bir is_deleted sütunu ekleyebilirsin veya durumunu değiştirebilirsin
-        .eq('id', dugun.id);
+    if (error) {
+      console.error('Supabase Insert Error:', error);
+      // Hata olsa bile kullanıcıya slug hatası yerine açıklayıcı yanıt dön
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, clearedCount: silinecekDugunler.length });
-
+    return NextResponse.json({ success: true, data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('API Server Error:', err);
+    return NextResponse.json({ success: false, error: err.message || 'Sunucu hatası' }, { status: 500 });
   }
 }
