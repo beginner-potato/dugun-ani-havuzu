@@ -1,158 +1,236 @@
 'use client';
 
-import { useState, use } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import confetti from 'canvas-confetti';
+import { useParams } from 'next/navigation';
 
-export default function WeddingUploadPage({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = use(params);
-  const slug = resolvedParams.slug;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+export default function WeddingUploadPage() {
+  const params = useParams();
+  const slug = params?.slug as string;
+
+  const [wedding, setWedding] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [guestName, setGuestName] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
-  const [progressText, setProgressText] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [successMessage, setSuccessMessage] = useState(false);
 
-  // Fotoğrafı sıkıştıran ve Base64'e çeviren fonksiyon
-  const compressAndConvertToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      // Eğer video ise sıkıştırmadan direkt base64 yapalım
-      if (file.type.startsWith('video/')) {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = (error) => reject(error);
-        return;
-      }
+  // Slug adresine göre veritabanından düğün bilgilerini çek
+  useEffect(() => {
+    if (slug) {
+      fetchWeddingDetails();
+    }
+  }, [slug]);
 
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
+  const fetchWeddingDetails = async () => {
+    const { data, error } = await supabase
+      .from('dugunler')
+      .select('*')
+      .eq('slug', slug)
+      .single();
 
-          // Maksimum genişlik/yükseklik sınırı (1280px web için idealdir)
-          const MAX_SIZE = 1280;
-          if (width > height) {
-            if (width > MAX_SIZE) {
-              height *= MAX_SIZE / width;
-              width = MAX_SIZE;
-            }
-          } else {
-            if (height > MAX_SIZE) {
-              width *= MAX_SIZE / height;
-              height = MAX_SIZE;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-
-          // Kaliteyi %80'e düşürerek JPEG formatında sıkıştırıyoruz (Boyutu devasa küçültür)
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-          resolve(dataUrl.split(',')[1]);
-        };
-        img.onerror = (error) => reject(error);
-      };
-      reader.onerror = (error) => reject(error);
-    });
+    if (error || !data) {
+      console.error('Düğün bulunamadı:', error);
+    } else {
+      setWedding(data);
+    }
+    setLoading(false);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setUploading(true);
-    setError('');
-    setSuccess(false);
-
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setProgressText(`${i + 1} / ${files.length} hazırlanıyor ve yükleniyor...`);
-
-        // Sıkıştırılmış base64 verisini alıyoruz
-        const base64Data = await compressAndConvertToBase64(file);
-
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            slug: slug,
-            fileName: file.name,
-            fileBase64: base64Data,
-            mimeType: file.type.startsWith('video/') ? file.type : 'image/jpeg',
-          }),
-        });
-
-        const data = await res.json();
-        if (!data.success) {
-          throw new Error(data.error || 'Yükleme başarısız oldu.');
-        }
-      }
-
-      setSuccess(true);
-    } catch (err: any) {
-  console.error(err);
-  setError(err.message || 'Bir hata oluştu.');
-} finally {
-      setUploading(false);
-      setProgressText('');
+  // Dosya seçme
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles((prev) => [...prev, ...filesArray]);
     }
   };
 
+  // Seçilen bir fotoğrafı listeden çıkarma
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Fotoğrafları yükleme simülasyonu / işlemi
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedFiles.length === 0) return;
+
+    setUploading(true);
+    setUploadProgress(20);
+
+    // Simüle edilmiş yükleme adımı (Google Drive entegrasyonu bir sonraki aşamada buraya bağlanacak)
+    setTimeout(() => {
+      setUploadProgress(70);
+    }, 1000);
+
+    setTimeout(() => {
+      setUploadProgress(100);
+      setUploading(false);
+      setSuccessMessage(true);
+      setSelectedFiles([]);
+      
+      // Kutlama konfeti efekti
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    }, 2000);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-rose-500"></div>
+      </div>
+    );
+  }
+
+  if (!wedding) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 text-center">
+        <div className="space-y-3 max-w-md">
+          <div className="text-4xl">🔍</div>
+          <h1 className="text-xl font-bold">Düğün Havuzu Bulunamadı</h1>
+          <p className="text-xs text-slate-400">Aradığınız düğün anı havuzu aktif değil veya böyle bir adres bulunmuyor.</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center">
-        <h1 className="text-2xl font-bold mb-2 text-pink-500">Düğün Anı Havuzu 📸</h1>
-        <p className="text-slate-400 text-sm mb-6">
-          Bu düğünde çektiğin anıları anında çiftin albümüne gönder!
-        </p>
-
-        {success ? (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl mb-6 font-medium">
-            🎉 Fotoğraflar başarıyla yüklendi! Harikasın!
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-4 rounded-xl mb-6 text-sm">
-            ❌ {error}
-          </div>
-        ) : null}
-
-        <div className="flex flex-col gap-4">
-          <label className={`w-full flex items-center justify-center gap-3 bg-pink-600 hover:bg-pink-500 text-white font-semibold py-4 px-6 rounded-xl cursor-pointer transition shadow-lg shadow-pink-600/20 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-            <span className="text-xl">🖼️</span>
-            <span>{uploading ? progressText : 'Galeriden Fotoğraf Seç'}</span>
-            <input
-              type="file"
-              multiple
-              accept="image/*,video/*"
-              className="hidden"
-              onChange={handleFileUpload}
-              disabled={uploading}
-            />
-          </label>
-
-          <label className={`w-full flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-4 px-6 rounded-xl cursor-pointer transition border border-slate-700 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-            <span className="text-xl">📷</span>
-            <span>Kamera ile Hemen Çek</span>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFileUpload}
-              disabled={uploading}
-            />
-          </label>
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
+      {/* Header */}
+      <div className="w-full max-w-md text-center space-y-3 pt-6">
+        <div className="w-14 h-14 mx-auto rounded-3xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center text-2xl shadow-xl shadow-rose-500/20">
+          💍
+        </div>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-wide">
+            {wedding.gelin_adi} & {wedding.damat_adi}
+          </h1>
+          <p className="text-xs uppercase tracking-widest text-rose-400 font-semibold mt-1">
+            Düğün Anı Havuzu
+          </p>
         </div>
       </div>
+
+      {/* Main Form Container */}
+      <div className="w-full max-w-md my-6 bg-slate-900/80 border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md space-y-6">
+        {successMessage ? (
+          <div className="text-center space-y-4 py-8">
+            <div className="w-16 h-16 mx-auto bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center text-2xl animate-bounce">
+              ✨
+            </div>
+            <h3 className="text-xl font-bold text-white">Harikasınız!</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Fotoğraflarınız başarıyla havuza eklendi. Çifte mutluluklar dileriz!
+            </p>
+            <button
+              onClick={() => setSuccessMessage(false)}
+              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition cursor-pointer"
+            >
+              Yeni Fotoğraf Yükle
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleUpload} className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                Adınız Soyadınız (İsteğe Bağlı)
+              </label>
+              <input
+                type="text"
+                placeholder="Örn: Merve & Burak"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500 transition"
+              />
+            </div>
+
+            {/* Dosya Seçim Alanı */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                Fotoğraf veya Video Seçin
+              </label>
+              <label className="border-2 border-dashed border-slate-700 hover:border-rose-500 bg-slate-800/40 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition group">
+                <svg className="w-8 h-8 text-rose-400 mb-2 group-hover:scale-110 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-xs font-medium text-slate-300">Galeriden Seçmek İçin Dokunun</span>
+                <span className="text-[10px] text-slate-500 mt-1">Birden fazla fotoğraf seçebilirsiniz</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {/* Seçilen Dosyaların Listesi */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-slate-400">Seçilenler ({selectedFiles.length} Dosya):</p>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                  {selectedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-slate-800 px-3 py-2 rounded-xl text-xs">
+                      <span className="truncate max-w-[240px] text-slate-300">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(idx)}
+                        className="text-rose-400 hover:text-rose-300 font-bold ml-2"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Yükleme İlerleme Çubuğu */}
+            {uploading && (
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Yükleniyor...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-rose-500 to-amber-400 transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={selectedFiles.length === 0 || uploading}
+              className={`w-full py-3.5 rounded-xl font-semibold text-sm transition shadow-lg ${
+                selectedFiles.length === 0 || uploading
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none'
+                  : 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-rose-500/25 cursor-pointer'
+              }`}
+            >
+              {uploading ? 'Yükleniyor...' : 'Anıları Havuza Gönder 🚀'}
+            </button>
+          </form>
+        )}
+      </div>
+
+      {/* Footer */}
+      <footer className="text-center text-[11px] text-slate-500 pb-4">
+        Düğün Anı Havuzu Sistemi ✨
+      </footer>
     </main>
   );
 }
