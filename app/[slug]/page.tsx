@@ -66,7 +66,7 @@ export default function WeddingUploadPage() {
 
     try {
       // Apps Script Web App URL'ni buraya yapıştıracaksın kanka
-      const scriptUrl = 'https://script.google.com/macros/s/AKfycbzYii13aWVEcGgzMyrnarSZ-LEX3c-tAuRxL-pReiTuCHnUKYZJ1mxqZW1RRfEjZihE/exec';
+      const scriptUrl = 'BURAYA_GOOGLE_APPS_SCRIPT_WEB_APP_URLINI_YAZ';
 
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
@@ -143,6 +143,9 @@ export default function WeddingUploadPage() {
     );
   }
 
+  // BURASI YENİ EKLENDİ: Havuzun kapalı olup olmadığını kontrol ediyoruz
+  const isClosed = wedding.status === 'completed' || (wedding.expire_at && new Date(wedding.expire_at) < new Date());
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
       {/* Header */}
@@ -162,7 +165,19 @@ export default function WeddingUploadPage() {
 
       {/* Main Form Container */}
       <div className="w-full max-w-md my-6 bg-slate-900/80 border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md space-y-6">
-        {successMessage ? (
+        
+        {/* EĞER HAVUZ KAPALIYSA BU EKRAN GÖRÜNECEK */}
+        {isClosed ? (
+          <div className="text-center space-y-4 py-8">
+            <div className="w-16 h-16 mx-auto bg-slate-800 border border-slate-700 text-slate-400 rounded-full flex items-center justify-center text-2xl">
+              🔒
+            </div>
+            <h3 className="text-xl font-bold text-white">Havuz Kapandı</h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Bu düğün anı havuzu arşive kaldırılmıştır. Katılımınız ve paylaştığınız güzel anılar için teşekkür ederiz!
+            </p>
+          </div>
+        ) : successMessage ? (
           <div className="text-center space-y-4 py-8">
             <div className="w-16 h-16 mx-auto bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center text-2xl animate-bounce">
               ✨
