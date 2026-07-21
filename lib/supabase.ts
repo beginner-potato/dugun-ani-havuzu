@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+// 1. Ortam değişkenini alıyoruz
+let rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fesbupehxponusbwlewj.supabase.co';
 
-// URL sonunda /rest/v1 veya / varsa otomatik temizler
-const cleanUrl = rawUrl
-  .replace(/\/rest\/v1\/?$/, '')
-  .replace(/\/$/, '');
+// 2. Eğer URL içinde kaç tane /rest/v1 geçerse geçsin hepsini söküp atıyoruz:
+rawUrl = rawUrl.replace(/\/rest\/v1/g, '').replace(/\/$/, '');
 
+// 3. Anon Key
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(cleanUrl, supabaseAnonKey);
+// 4. Saf ve temiz domain ile istemciyi başlatıyoruz
+export const supabase = createClient(rawUrl, supabaseAnonKey);
