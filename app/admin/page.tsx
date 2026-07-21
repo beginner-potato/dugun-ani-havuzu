@@ -131,7 +131,10 @@ export default function AdminDashboard() {
       .replace(/[^a-z0-9 -]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
-    setNewSlug(generatedSlug);
+    
+    // Sonuna rastgele 4 karakter ekleyerek çakışmayı (unique hatasını) önlüyoruz
+    const uniqueSlug = `${generatedSlug}-${Math.random().toString(36).substring(2, 6)}`;
+    setNewSlug(uniqueSlug);
   };
 
   const handleCreateWedding = async (e: React.FormEvent) => {
