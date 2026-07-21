@@ -1,70 +1,60 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { groomName, brideName, slug, storageDuration } = body;
+    const { slug, fileName, fileBase64, mimeType } = body;
 
-    // Temiz ve benzersiz slug oluştur (Çakışma riskini sıfıra indirmek için)
-    let cleanSlug = (slug || `${groomName}-${brideName}`)
-      .toLowerCase()
-      .trim()
-      .replace(/ğ/g, 'g')
-      .replace(/ü/g, 'u')
-      .replace(/ş/g, 's')
-      .replace(/ı/g, 'i')
-      .replace(/ö/g, 'o')
-      .replace(/ç/g, 'c')
-      .replace(/[^a-z0-9-]/g, '')
-      .replace(/-+/g, '-');
-
-    // Eğer slug boş kaldıysa varsayılan ver
-    if (!cleanSlug) {
-      cleanSlug = `dugun-${Date.now().toString().slice(-4)}`;
+    if (!fileBase64 || !slug) {
+      return NextResponse.json(
+        { success: false, error: 'Eksik dosya veya düğün bilgisi.' },
+        { status: 400 }
+      );
     }
 
-    // Veritabanında slug kontrolü yap
-    const { data: existing } = await supabase
-      .from('weddings')
-      .select('id')
-      .eq('slug', cleanSlug)
-      .maybeSingle();
+    const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL;
 
-    // Eğer bu slug varsa, sonuna benzersiz küçük bir rastgele sayı ekle ki asla hata vermesin!
-    if (existing) {
-      cleanSlug = `${cleanSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (!scriptUrl) {
+      return NextResponse.json(
+        { success: false, error: 'Google Script URL konfigüre edilmemiş.' },
+        { status: 500 }
+      );
     }
 
-    // Supabase'e ekle
-    const { data, error } = await supabase
-      .from('weddings')
-      .insert([
-        {
-          groom_name: groomName,
-          bride_name: brideName,
-          slug: cleanSlug,
-          storage_duration: storageDuration || '7_days',
-          status: 'active',
-          created_at: new Date().toISOString()
-        }
-      ])
-      .select()
-      .single();
+    // Google Apps Script Webhook'una istek atıyoruz
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        slug,
+        fileName: fileName || `photo-${Date.now()}.jpg`,
+        fileBase64,
+        mimeType: mimeType || 'image/jpeg',
+      }),
+    });
 
-    if (error) {
-      console.error('Supabase Insert Error:', error);
-      // Hata olsa bile kullanıcıya slug hatası yerine açıklayıcı yanıt dön
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    const result = await response.json();
+
+    if (result.status === 'success') {
+      return NextResponse.json({
+        success: true,
+        fileId: result.fileId,
+        fileUrl: result.fileUrl,
+      });
+    } else {
+      console.error('Google Script Error:', result.message);
+      return NextResponse.json(
+        { success: false, error: result.message || 'Drive yükleme hatası.' },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json({ success: true, data });
   } catch (err: any) {
-    console.error('API Server Error:', err);
-    return NextResponse.json({ success: false, error: err.message || 'Sunucu hatası' }, { status: 500 });
+    console.error('Upload Route Error:', err);
+    return NextResponse.json(
+      { success: false, error: err.message || 'Sunucu hatası.' },
+      { status: 500 }
+    );
   }
 }
