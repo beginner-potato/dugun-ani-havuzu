@@ -2,63 +2,61 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as Blob | null;
+    const body = await request.json();
+    const { slug, fileName, fileBase64, mimeType } = body;
 
-    if (!file) {
-      return NextResponse.json({ error: 'Dosya bulunamadı' }, { status: 400 });
+    if (!fileBase64 || !slug) {
+      return NextResponse.json(
+        { success: false, error: 'Eksik dosya veya düğün bilgisi.' },
+        { status: 400 }
+      );
     }
 
-    // OAuth Playground'dan aldığın "Refresh token" kutusundaki uzun kodu buraya gir
-    const REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN;
-    
-    const CLIENT_ID = '743555234559-4vdu71k1q0as.apps.googleusercontent.com';
-    const CLIENT_SECRET = 'GOCSPX-v1_x_pD6uNnB9l0q9tXF';
+    const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL;
+    if (!scriptUrl) {
+      return NextResponse.json(
+        { success: false, error: 'Google Script URL konfigüre edilmemiş.' },
+        { status: 500 }
+      );
+    }
 
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    // Google'ın takılmaması için text/plain olarak yollayıp script içinde parse ediyoruz
+    const response = await fetch(scriptUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
       body: JSON.stringify({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
-        grant_type: 'refresh_token',
+        slug,
+        fileName: fileName || `photo-${Date.now()}.jpg`,
+        fileBase64,
+        mimeType: mimeType || 'image/jpeg',
       }),
     });
 
-    const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
-
-    if (!accessToken) {
-      return NextResponse.json({ error: `Google Token Alınamadı: ${tokenData.error_description || 'Geçersiz Token'}` }, { status: 500 });
+    const textResponse = await response.text();
+    let result;
+    try {
+      result = JSON.parse(textResponse);
+    } catch (e) {
+      console.error('Google Raw Response:', textResponse);
+      throw new Error('Google Drive bağlantı yanıtı işlenemedi.');
     }
 
-    const metadata = {
-      name: `dugun_ani_${Date.now()}.${file.type.split('/')[1] || 'jpg'}`,
-      mimeType: file.type,
-    };
-
-    const driveFormData = new FormData();
-    driveFormData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    driveFormData.append('file', file);
-
-    const driveResponse = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: driveFormData,
-      }
-    );
-
-    const driveData = await driveResponse.json();
-
-    if (driveData.id) {
-      return NextResponse.json({ success: true, fileId: driveData.id });
+    if (result.status === 'success') {
+      return NextResponse.json({
+        success: true,
+        fileId: result.fileId,
+        fileUrl: result.fileUrl,
+      });
     } else {
-      return NextResponse.json({ error: `Drive Hatası: ${driveData.error?.message || 'Yüklenemedi'}` }, { status: 500 });
+      throw new Error(result.message || 'Drive yükleme hatası.');
     }
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('Upload Route Error:', err);
+    return NextResponse.json(
+      { success: false, error: err.message || 'Sunucu hatası.' },
+      { status: 500 }
+    );
   }
 }
