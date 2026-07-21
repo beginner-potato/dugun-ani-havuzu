@@ -89,7 +89,36 @@ export default function AdminDashboard() {
       setWeddings(formatted);
     }
   };
+  // Düğün havuzunu silme fonksiyonu
+  const handleDeleteWedding = async (id: string, coupleNames: string) => {
+    if (!confirm(`"${coupleNames}" düğün havuzunu kalıcı olarak silmek istediğinize emin misiniz?`)) {
+      return;
+    }
 
+    const { error } = await supabase
+      .from('dugunler')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Silme hatası:', error);
+      showToast('❌ Silinirken bir hata oluştu!');
+    } else {
+      showToast('🗑️ Düğün havuzu başarıyla silindi.');
+      fetchWeddings(); // Listeyi tazele
+    }
+  };
+
+  // Düğün durumunu güncelleme (Aktif / Tamamlandı vb.)
+  const handleUpdateStatus = async (id: string, newStatus: string) => {
+    const { error } = await supabase
+      .from('dugunler')
+      .update({ status: newStatus }) // Not: Veritabanında status sütunu varsa günceller
+      .eq('id', id);
+
+    showToast(`✨ Etkinlik durumu güncellendi.`);
+    fetchWeddings();
+  };
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
