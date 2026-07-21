@@ -56,32 +56,71 @@ export default function WeddingUploadPage() {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Fotoğrafları yükleme simülasyonu / işlemi
+  // Fotoğrafları Google Apps Script (Drive) Web App'e gönderen gerçek fonksiyon
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedFiles.length === 0) return;
 
     setUploading(true);
-    setUploadProgress(20);
+    setUploadProgress(30);
 
-    // Simüle edilmiş yükleme adımı (Google Drive entegrasyonu bir sonraki aşamada buraya bağlanacak)
-    setTimeout(() => {
-      setUploadProgress(70);
-    }, 1000);
+    try {
+      // Apps Script Web App URL'ni buraya yapıştıracaksın kanka
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbzYii13aWVEcGgzMyrnarSZ-LEX3c-tAuRxL-pReiTuCHnUKYZJ1mxqZW1RRfEjZihE/exec';
 
-    setTimeout(() => {
-      setUploadProgress(100);
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        
+        // Dosyayı Base64 formatına çeviriyoruz
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+            const result = reader.result as string;
+            // "data:image/jpeg;base64,..." kısmından sadece base64 verisini alıyoruz
+            const base64Code = result.split(',')[1];
+            resolve(base64Code);
+          };
+          reader.onerror = (error) => reject(error);
+        });
+
+        // Apps Script'in beklediği JSON yapısı
+        const payload = {
+          slug: slug, // Hangi düğün klasörüne gideceğini belirtiyor
+          fileBase64: base64Data,
+          fileName: file.name,
+          mimeType: file.type || 'image/jpeg'
+        };
+
+        // Apps Script'e POST isteği atıyoruz
+        await fetch(scriptUrl, {
+          method: 'POST',
+          mode: 'no-cors', // Apps Script CORS engeline takılmamak için
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+
+        setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
+      }
+
       setUploading(false);
       setSuccessMessage(true);
       setSelectedFiles([]);
-      
+
       // Kutlama konfeti efekti
       confetti({
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 }
       });
-    }, 2000);
+
+    } catch (err) {
+      console.error('Yükleme hatası:', err);
+      alert('Fotoğraflar yüklenirken bir hata oluştu!');
+      setUploading(false);
+    }
   };
 
   if (loading) {
