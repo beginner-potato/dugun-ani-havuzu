@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase istemcisini güvenli şekilde başlatıyoruz
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface Wedding {
   id: string;
@@ -10,44 +16,20 @@ interface Wedding {
   photoCount: number;
   maxPhotos: number;
   status: 'active' | 'scheduled' | 'completed';
-  driveFolderId?: string;
   driveUrl?: string;
 }
 
 export default function AdminDashboard() {
-  const [weddings, setWeddings] = useState<Wedding[]>([
-    {
-      id: '1',
-      coupleNames: 'Ayşe & Ahmet',
-      slug: 'ayse-ahmet',
-      date: '2026-08-15',
-      photoCount: 142,
-      maxPhotos: 500,
-      status: 'active',
-      driveUrl: 'https://drive.google.com/drive/folders/sample1'
-    },
-    {
-      id: '2',
-      coupleNames: 'Elif & Mehmet',
-      slug: 'elif-mehmet',
-      date: '2026-09-02',
-      photoCount: 0,
-      maxPhotos: 300,
-      status: 'scheduled',
-      driveUrl: 'https://drive.google.com/drive/folders/sample2'
-    },
-    {
-      id: '3',
-      coupleNames: 'Selin & Can',
-      slug: 'selin-can',
-      date: '2026-06-20',
-      photoCount: 488,
-      maxPhotos: 500,
-      status: 'completed',
-      driveUrl: 'https://drive.google.com/drive/folders/sample3'
-    }
-  ]);
+  const [session, setSession] = useState<any>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
+  // Login form states
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  // Dashboard states
+  const [weddings, setWeddings] = useState<Wedding[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -60,6 +42,35 @@ export default function AdminDashboard() {
   const [newDate, setNewDate] = useState('');
   const [newMaxPhotos, setNewMaxPhotos] = useState(500);
 
+  // Oturum kontrolü
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoadingAuth(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setAuthError('Giriş başarısız: E-posta veya şifre hatalı.');
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -67,7 +78,6 @@ export default function AdminDashboard() {
 
   const handleCoupleNameChange = (val: string) => {
     setNewCouple(val);
-    // Auto generate clean slug
     const generatedSlug = val
       .toLowerCase()
       .trim()
@@ -121,9 +131,74 @@ export default function AdminDashboard() {
   const totalPhotos = weddings.reduce((acc, w) => acc + w.photoCount, 0);
   const activeWeddingsCount = weddings.filter((w) => w.status === 'active').length;
 
+  // Yükleniyor durumu
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-rose-500"></div>
+      </div>
+    );
+  }
+
+  // 🔒 EĞER GİRİŞ YAPILMAMIŞSA: Şık Giriş Ekranı Göster
+  if (!session) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center font-bold text-xl text-white shadow-lg shadow-rose-500/20">
+              💍
+            </div>
+            <h1 className="text-2xl font-bold text-white">Yönetici Girişi</h1>
+            <p className="text-xs text-slate-400">Düğün Anı Havuzu Kontrol Paneli</p>
+          </div>
+
+          {authError && (
+            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-3 rounded-xl text-xs text-center font-medium">
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">E-posta Adresi</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ornek@fotografci.com"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500 transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Şifre</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500 transition"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg shadow-rose-500/25 transition"
+            >
+              Güvenli Giriş Yap
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
+  // 🔓 GİRİŞ YAPILDIYSA: Asıl Admin Paneli Gösterilir
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans">
-      {/* Top Navigation */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -143,16 +218,18 @@ export default function AdminDashboard() {
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               Google Drive Bağlı
             </span>
-            <button className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition">
-              Çıkış Yap
-            </button>
+            <button
+  onClick={handleLogout}
+  className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition cursor-pointer"
+>
+  Çıkış Yap
+</button>
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Toast Notification */}
         {toastMessage && (
           <div className="fixed bottom-6 right-6 z-50 bg-rose-500 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-bounce">
             <span>{toastMessage}</span>
@@ -456,7 +533,6 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            {/* Print Card Preview */}
             <div className="w-full bg-gradient-to-b from-rose-50 to-amber-50 p-6 rounded-3xl text-slate-800 text-center shadow-xl border-4 border-white flex flex-col items-center space-y-4">
               <div className="text-2xl font-serif font-bold text-rose-900">
                 {selectedQrWedding.coupleNames}
@@ -465,7 +541,6 @@ export default function AdminDashboard() {
                 Düğün Anı Havuzu
               </p>
 
-              {/* Dynamic QR Code Image using QuickChart QR API */}
               <div className="p-3 bg-white rounded-2xl shadow-inner border border-rose-100">
                 <img
                   src={`https://quickchart.io/qr?text=${encodeURIComponent(
@@ -486,7 +561,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Modal Actions */}
             <div className="w-full grid grid-cols-2 gap-3">
               <button
                 onClick={() => window.print()}

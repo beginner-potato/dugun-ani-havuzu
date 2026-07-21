@@ -11,6 +11,57 @@ export default function WeddingUploadPage({ params }: { params: Promise<{ slug: 
   const [error, setError] = useState('');
   const [progressText, setProgressText] = useState('');
 
+  // Fotoğrafı sıkıştıran ve Base64'e çeviren fonksiyon
+  const compressAndConvertToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      // Eğer video ise sıkıştırmadan direkt base64 yapalım
+      if (file.type.startsWith('video/')) {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = (error) => reject(error);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Maksimum genişlik/yükseklik sınırı (1280px web için idealdir)
+          const MAX_SIZE = 1280;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Kaliteyi %80'e düşürerek JPEG formatında sıkıştırıyoruz (Boyutu devasa küçültür)
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(dataUrl.split(',')[1]);
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -22,9 +73,10 @@ export default function WeddingUploadPage({ params }: { params: Promise<{ slug: 
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        setProgressText(`${i + 1} / ${files.length} yükleniyor...`);
+        setProgressText(`${i + 1} / ${files.length} hazırlanıyor ve yükleniyor...`);
 
-        const base64Data = await toBase64(file);
+        // Sıkıştırılmış base64 verisini alıyoruz
+        const base64Data = await compressAndConvertToBase64(file);
 
         const res = await fetch('/api/upload', {
           method: 'POST',
@@ -33,7 +85,7 @@ export default function WeddingUploadPage({ params }: { params: Promise<{ slug: 
             slug: slug,
             fileName: file.name,
             fileBase64: base64Data,
-            mimeType: file.type,
+            mimeType: file.type.startsWith('video/') ? file.type : 'image/jpeg',
           }),
         });
 
@@ -45,25 +97,13 @@ export default function WeddingUploadPage({ params }: { params: Promise<{ slug: 
 
       setSuccess(true);
     } catch (err: any) {
-      console.error(err);
+      console.err(err);
       setError(err.message || 'Bir hata oluştu.');
     } finally {
       setUploading(false);
       setProgressText('');
     }
   };
-
-  const toBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        const base64Code = result.split(',')[1];
-        resolve(base64Code);
-      };
-      reader.onerror = (error) => reject(error);
-    });
 
   return (
     <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6">
@@ -86,7 +126,6 @@ export default function WeddingUploadPage({ params }: { params: Promise<{ slug: 
         ) : null}
 
         <div className="flex flex-col gap-4">
-          {/* 1. Seçenek: Galeriden Çoklu Seçim */}
           <label className={`w-full flex items-center justify-center gap-3 bg-pink-600 hover:bg-pink-500 text-white font-semibold py-4 px-6 rounded-xl cursor-pointer transition shadow-lg shadow-pink-600/20 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
             <span className="text-xl">🖼️</span>
             <span>{uploading ? progressText : 'Galeriden Fotoğraf Seç'}</span>
@@ -100,7 +139,6 @@ export default function WeddingUploadPage({ params }: { params: Promise<{ slug: 
             />
           </label>
 
-          {/* 2. Seçenek: Direkt Kamera ile Çek */}
           <label className={`w-full flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-4 px-6 rounded-xl cursor-pointer transition border border-slate-700 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
             <span className="text-xl">📷</span>
             <span>Kamera ile Hemen Çek</span>
