@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase istemcisini güvenli şekilde başlatıyoruz
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Supabase istemcisini güvenli bir şekilde başlatıyoruz
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 interface Wedding {
   id: string;
@@ -53,6 +54,7 @@ export default function AdminDashboard() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setLoadingAuth(false);
     });
 
     return () => subscription.unsubscribe();
@@ -70,11 +72,13 @@ export default function AdminDashboard() {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      setSession(null);
-      window.location.href = '/admin';
-    } catch (err) {
-      console.error('Çıkış yaparken hata oluştu:', err);
+    } catch (e) {
+      console.error(e);
     }
+    // Tarayıcıdaki tüm oturum verilerini temizleyip sayfayı zorla yeniliyoruz
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/admin';
   };
 
   const showToast = (msg: string) => {
@@ -137,7 +141,6 @@ export default function AdminDashboard() {
   const totalPhotos = weddings.reduce((acc, w) => acc + w.photoCount, 0);
   const activeWeddingsCount = weddings.filter((w) => w.status === 'active').length;
 
-  // Yükleniyor durumu
   if (loadingAuth) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
@@ -146,7 +149,7 @@ export default function AdminDashboard() {
     );
   }
 
-  // 🔒 EĞER GİRİŞ YAPILMAMIŞSA: Şık Giriş Ekranı Göster
+  // 🔒 GİRİŞ YAPILMAMIŞSA
   if (!session) {
     return (
       <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
@@ -192,7 +195,7 @@ export default function AdminDashboard() {
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg shadow-rose-500/25 transition"
+              className="w-full py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg shadow-rose-500/25 transition cursor-pointer"
             >
               Güvenli Giriş Yap
             </button>
@@ -202,10 +205,10 @@ export default function AdminDashboard() {
     );
   }
 
-  // 🔓 GİRİŞ YAPILDIYSA: Asıl Admin Paneli Gösterilir
+  // 🔓 GİRİŞ YAPILDIYSA
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans">
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30">
+      <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-rose-500/20">
@@ -226,11 +229,8 @@ export default function AdminDashboard() {
             </span>
             <button
               type="button"
-              onClick={() => {
-                console.log("Çıkış butonuna tıklandı!");
-                handleLogout();
-              }}
-              className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition cursor-pointer relative z-50"
+              onClick={handleLogout}
+              className="px-4 py-2 text-sm text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition cursor-pointer z-50"
             >
               Çıkış Yap
             </button>
@@ -313,7 +313,7 @@ export default function AdminDashboard() {
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-rose-500/25 transition transform active:scale-95"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-rose-500/25 transition transform active:scale-95 cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -387,7 +387,7 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-700/50">
                   <button
                     onClick={() => setSelectedQrWedding(wedding)}
-                    className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-xs font-medium gap-1"
+                    className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-xs font-medium gap-1 cursor-pointer"
                   >
                     <svg className="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -402,7 +402,7 @@ export default function AdminDashboard() {
 
                   <button
                     onClick={() => copyToClipboard(wedding.slug)}
-                    className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-xs font-medium gap-1"
+                    className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-xs font-medium gap-1 cursor-pointer"
                   >
                     <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -446,7 +446,7 @@ export default function AdminDashboard() {
               <h3 className="text-xl font-bold text-white">Yeni Düğün Havuzu Oluştur</h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-white transition p-1"
+                className="text-slate-400 hover:text-white transition p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -513,13 +513,13 @@ export default function AdminDashboard() {
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition"
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/25 transition"
+                  className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/25 transition cursor-pointer"
                 >
                   Havuzu Oluştur
                 </button>
@@ -537,7 +537,7 @@ export default function AdminDashboard() {
               <h3 className="font-bold text-white text-base">QR Yazdırılabilir Kart</h3>
               <button
                 onClick={() => setSelectedQrWedding(null)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white cursor-pointer"
               >
                 ✕
               </button>
@@ -574,7 +574,7 @@ export default function AdminDashboard() {
             <div className="w-full grid grid-cols-2 gap-3">
               <button
                 onClick={() => window.print()}
-                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs flex items-center justify-center gap-2 transition"
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs flex items-center justify-center gap-2 transition cursor-pointer"
               >
                 🖨️ Karta Yazdır
               </button>
@@ -583,7 +583,7 @@ export default function AdminDashboard() {
                   copyToClipboard(selectedQrWedding.slug);
                   setSelectedQrWedding(null);
                 }}
-                className="w-full py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 transition"
+                className="w-full py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 transition cursor-pointer"
               >
                 🔗 Linki Al
               </button>
