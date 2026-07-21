@@ -75,17 +75,17 @@ export default function AdminDashboard() {
     if (error) {
       console.error('Düğünler çekilemedi:', error);
     } else if (data) {
-      const formatted = data.map((item: any) => ({
+      const formatted: Wedding[] = data.map((item: any) => ({
         id: item.id,
-        // Gelin ve Damat adını tek bir string'de birleştiriyoruz
         coupleNames: `${item.gelin_adi || ''} & ${item.damat_adi || ''}`,
         slug: item.slug,
         date: item.created_at ? item.created_at.split('T')[0] : '2026-08-15',
-        photoCount: 0, // Şimdilik 0
-        maxPhotos: 500, // Şimdilik 500
-        status: 'active',
+        photoCount: 0,
+        maxPhotos: 500,
+        status: 'active' as const,
         driveUrl: item.drive_folder_id || ''
       }));
+
       setWeddings(formatted);
     }
   };
