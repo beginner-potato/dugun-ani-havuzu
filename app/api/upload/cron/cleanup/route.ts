@@ -12,20 +12,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL;
+    // URL'yi ortam değişkeni yerine doğrudan buraya hatasız gömüyoruz
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbwa11755Wh3CEcYK9cUeOrIL4PVswYCv8PTVFMFO0Nnp6OY1zu89OdUMDT1JAyOp00P/exec';
 
-    if (!scriptUrl) {
-      return NextResponse.json(
-        { success: false, error: 'Google Script URL konfigüre edilmemiş.' },
-        { status: 500 }
-      );
-    }
-
-    // Google Apps Script Webhook'una istek atıyoruz
     const response = await fetch(scriptUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify({
         slug,
@@ -35,7 +28,14 @@ export async function POST(request: Request) {
       }),
     });
 
-    const result = await response.json();
+    const textResponse = await response.text();
+    let result;
+    try {
+      result = JSON.parse(textResponse);
+    } catch (e) {
+      console.error('Google Raw Response:', textResponse);
+      throw new Error('Google Drive bağlantı yanıtı işlenemedi.');
+    }
 
     if (result.status === 'success') {
       return NextResponse.json({
@@ -44,11 +44,7 @@ export async function POST(request: Request) {
         fileUrl: result.fileUrl,
       });
     } else {
-      console.error('Google Script Error:', result.message);
-      return NextResponse.json(
-        { success: false, error: result.message || 'Drive yükleme hatası.' },
-        { status: 500 }
-      );
+      throw new Error(result.message || 'Drive yükleme hatası.');
     }
   } catch (err: any) {
     console.error('Upload Route Error:', err);
