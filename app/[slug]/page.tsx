@@ -94,9 +94,8 @@ export default function WeddingUploadPage() {
         };
 
         // Apps Script'e POST isteği atıyoruz
-        await fetch(scriptUrl, {
+        await fetch(REAL_SCRIPT_URL, {
           method: 'POST',
-          mode: 'no-cors',
           headers: {
             'Content-Type': 'application/json',
           },
