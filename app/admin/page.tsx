@@ -177,7 +177,7 @@ export default function AdminDashboard() {
       slug: newSlug,
       drive_folder_id: 'https://drive.google.com',
       expire_at: finalDate.toISOString(),
-      storage_retention_days: Number(newRetentionDays) // 👈 Veritabanına gönderilen süre
+      drive_sure_gun: Number(newRetentionDays) // ✅ Doğrudan senin sütun adın
     };
 
     const { data, error } = await supabase.from('dugunler').insert([newEntry]).select();
