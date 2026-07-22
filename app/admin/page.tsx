@@ -177,16 +177,22 @@ export default function AdminDashboard() {
     const gelinAdi = names[0] || newCouple;
     const damatAdi = names[1] || '';
 
-    // Bugünden 1 ay sonrasını otomatik bitiş tarihi olarak hesaplıyoruz
-    const expireDate = new Date();
-    expireDate.setMonth(expireDate.getMonth() + 1);
+    // Bugünden 1 ay sonrasını varsayılan olarak belirliyoruz
+    const defaultExpire = new Date();
+    defaultExpire.setMonth(defaultExpire.getMonth() + 1);
+
+    // Eğer formdan tarih seçildiyse onu, seçilmediyse varsayılan 1 ay sonrasını alıyoruz
+    const finalDate = newDate ? new Date(newDate) : defaultExpire;
+    
+    // Saati tam olarak o günün en son saniyesine (23:59:59) sabitliyoruz!
+    finalDate.setHours(23, 59, 59, 999);
 
     const newEntry = {
       gelin_adi: gelinAdi,
       damat_adi: damatAdi,
       slug: newSlug,
       drive_folder_id: 'https://drive.google.com',
-      expire_at: newDate || expireDate.toISOString().split('T')[0] // Zorunlu alana tarih veriyoruz
+      expire_at: finalDate.toISOString() // Tarihi 23:59:59 formatıyla birlikte Supabase'e gönderiyoruz
     };
 
     const { error } = await supabase.from('dugunler').insert([newEntry]);
