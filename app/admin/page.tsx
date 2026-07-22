@@ -41,6 +41,7 @@ export default function AdminDashboard() {
   const [newSlug, setNewSlug] = useState('');
   const [newDate, setNewDate] = useState('');
   const [newMaxPhotos, setNewMaxPhotos] = useState(500);
+  const [newRetentionDays, setNewRetentionDays] = useState(30); // 👈 Yeni eklenen saklama süresi (gün)
 
   // Oturum kontrolü
   useEffect(() => {
@@ -110,17 +111,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Düğün durumunu güncelleme (Aktif / Tamamlandı vb.)
-  const handleUpdateStatus = async (id: string, newStatus: string) => {
-    const { error } = await supabase
-      .from('dugunler')
-      .update({ status: newStatus }) // Not: Veritabanında status sütunu varsa günceller
-      .eq('id', id);
-
-    showToast(`✨ Etkinlik durumu güncellendi.`);
-    fetchWeddings();
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -136,7 +126,6 @@ export default function AdminDashboard() {
     } catch (e) {
       console.error(e);
     }
-    // Tarayıcıdaki tüm oturum verilerini temizleyip sayfayı zorla yeniliyoruz
     localStorage.clear();
     sessionStorage.clear();
     window.location.href = '/admin';
@@ -163,7 +152,6 @@ export default function AdminDashboard() {
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
     
-    // Sonuna rastgele 4 karakter ekleyerek çakışmayı (unique hatasını) önlüyoruz
     const uniqueSlug = `${generatedSlug}-${Math.random().toString(36).substring(2, 6)}`;
     setNewSlug(uniqueSlug);
   };
@@ -172,27 +160,24 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!newCouple || !newSlug) return;
 
-    // İsmi "Ayşe & Ahmet" şeklinde girildiyse ayırıyoruz
     const names = newCouple.split('&').map((n) => n.trim());
     const gelinAdi = names[0] || newCouple;
-    const damatAdi = names[1] || '';
+    const damat_adi = names[1] || '';
 
-    // Bugünden 1 ay sonrasını varsayılan olarak belirliyoruz
-    const defaultExpire = new Date();
-    defaultExpire.setMonth(defaultExpire.getMonth() + 1);
-
-    // Eğer formdan tarih seçildiyse onu, seçilmediyse varsayılan 1 ay sonrasını alıyoruz
-    const finalDate = newDate ? new Date(newDate) : defaultExpire;
-    
-    // Saati tam olarak o günün en son saniyesine (23:59:59) sabitliyoruz!
+    // Seçilen gün sayısına göre expire_at tarihini otomatik hesaplıyoruz
+    const finalDate = newDate ? new Date(newDate) : new Date();
+    if (!newDate) {
+      finalDate.setDate(finalDate.getDate() + Number(newRetentionDays));
+    }
     finalDate.setHours(23, 59, 59, 999);
 
     const newEntry = {
       gelin_adi: gelinAdi,
-      damat_adi: damatAdi,
+      damat_adi: damat_adi,
       slug: newSlug,
       drive_folder_id: 'https://drive.google.com',
-      expire_at: finalDate.toISOString() // Tarihi 23:59:59 formatıyla birlikte Supabase'e gönderiyoruz
+      expire_at: finalDate.toISOString(),
+      storage_retention_days: Number(newRetentionDays) // 👈 Veritabanına gönderilen süre
     };
 
     const { error } = await supabase.from('dugunler').insert([newEntry]);
@@ -203,12 +188,12 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Başarılı olursa listeyi tekrar çekip formu temizliyoruz
     fetchWeddings();
     setIsAddModalOpen(false);
     setNewCouple('');
     setNewSlug('');
     setNewDate('');
+    setNewRetentionDays(30);
     showToast('🎉 Yeni düğün Supabase veritabanına kaydedildi!');
   };
 
@@ -235,7 +220,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // 🔒 GİRİŞ YAPILMAMIŞSA
   if (!session) {
     return (
       <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
@@ -291,7 +275,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // 🔓 GİRİŞ YAPILDIYSA
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans">
       <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
@@ -324,7 +307,6 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {toastMessage && (
           <div className="fixed bottom-6 right-6 z-50 bg-rose-500 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-bounce">
@@ -588,6 +570,22 @@ export default function AdminDashboard() {
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-rose-500"
                   />
                 </div>
+              </div>
+
+              {/* 👈 YENİ EKLENEN KISIM: Drive'da Saklama Süresi (Gün) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Drive Saklama Süresi (Gün Olarak)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={newRetentionDays}
+                  onChange={(e) => setNewRetentionDays(Number(e.target.value))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-rose-500"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">Bu süre dolduğunda havuz otomatik olarak kilitlenir.</p>
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-3">
