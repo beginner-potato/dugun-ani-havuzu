@@ -180,7 +180,13 @@ export default function AdminDashboard() {
       storage_retention_days: Number(newRetentionDays) // 👈 Veritabanına gönderilen süre
     };
 
-    const { error } = await supabase.from('dugunler').insert([newEntry]);
+    const { data, error } = await supabase.from('dugunler').insert([newEntry]).select();
+
+    if (error) {
+      console.error('Supabase Detaylı Hata:', error);
+      alert(`Kayıt Hatası: ${error.message} (Kod: ${error.code})`);
+      return;
+    }
 
     if (error) {
       console.error('Kayıt hatası:', error);
