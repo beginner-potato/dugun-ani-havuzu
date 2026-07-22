@@ -58,7 +58,7 @@ export default function WeddingUploadPage() {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Fotoğrafları Google Apps Script (Drive) Web App'e gönderen gerçek fonksiyon
+  // Fotoğrafları Google Apps Script (Drive) Web App'e gönderen fonksiyon (CORS aşımı için text/plain)
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedFiles.length === 0) return;
@@ -67,9 +67,6 @@ export default function WeddingUploadPage() {
     setUploadProgress(30);
 
     try {
-      // YENİ VE DOĞRU GOOGLE APPS SCRIPT URL'N BURAYA ENTEGRE EDİLDİ
-      const scriptUrl = 'https://script.google.com/macros/s/AKfycbzFViXBdHK9gXPhRQnyuEMzlqqe_y5uwhm4HA7l6_HGFdZyUNtUAgPkBVNrYmHb6ViY/exec';
-
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         
@@ -85,15 +82,17 @@ export default function WeddingUploadPage() {
           reader.onerror = (error) => reject(error);
         });
 
-        // Apps Script'in beklediği JSON yapısı
+        // Apps Script'in beklediği JSON yapısı (Drive saklama süresi de eklendi)
         const payload = {
           slug: slug,
           fileBase64: base64Data,
           fileName: file.name,
-          mimeType: file.type || 'image/jpeg'
+          mimeType: file.type || 'image/jpeg',
+          guestName: guestName || 'İsimsiz Misafir',
+          retentionDays: wedding.storage_retention_days || 30
         };
 
-        // Apps Script'e POST isteği atıyoruz
+        // Apps Script'e text/plain formatında POST isteği
         await fetch(REAL_SCRIPT_URL, {
           method: 'POST',
           headers: {
@@ -143,7 +142,10 @@ export default function WeddingUploadPage() {
     );
   }
 
-  const isClosed = wedding.expire_at ? new Date(wedding.expire_at) < new Date() : false;
+  // Havuzun kapalı olup olmadığını kontrol eden mantık
+  const isDateExpired = wedding.expire_at ? new Date(wedding.expire_at) < new Date() : false;
+  const isStatusClosed = wedding.status === 'closed' || wedding.status === 'tamamlandi' || wedding.durum === 'kapali';
+  const isClosed = isDateExpired || isStatusClosed;
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
@@ -170,7 +172,7 @@ export default function WeddingUploadPage() {
               🔒
             </div>
             <h3 className="text-xl font-bold text-white">Havuz Kapandı</h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-400 leading-relaxed">
               Bu düğün anı havuzu arşive kaldırılmıştır. Katılımınız ve paylaştığınız güzel anılar için teşekkür ederiz!
             </p>
           </div>
