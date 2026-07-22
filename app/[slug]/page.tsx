@@ -146,7 +146,8 @@ export default function WeddingUploadPage() {
 
   // BURASI YENİ EKLENDİ: Havuzun kapalı olup olmadığını kontrol ediyoruz
   // Sadece status açıkça 'completed' veya 'closed' ise kapat, yoksa varsayılan olarak hep açık olsun!
-const isClosed = wedding.status === 'completed' || wedding.status === 'closed' || (wedding.expire_at && new Date(wedding.expire_at) < new Date());
+// Tabloda status kolonu olmadığı için sadece expire_at tarihine bakıyoruz. Tarih dolmadıysa havuz her zaman açık!
+const isClosed = wedding.expire_at ? new Date(wedding.expire_at) < new Date() : false;
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
