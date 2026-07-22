@@ -67,7 +67,7 @@ export default function WeddingUploadPage() {
 
     try {
       // Apps Script Web App URL'ni buraya yapıştıracaksın kanka
-      const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL || '';
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbx14Abe_kuS08_ztJdwBbinwkhhRemVmGYPsI5NPbxg8p0U3aAtoFEpesjcEAb3MQWp/exec';
 
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
