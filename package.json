@@ -3,11 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "npx --legacy-peer-deps @cloudflare/next-on-pages@1",
-    "start": "next start",
-    "lint": "eslint"
-  },
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start"
+},
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",
     "@types/canvas-confetti": "^1.9.0",
