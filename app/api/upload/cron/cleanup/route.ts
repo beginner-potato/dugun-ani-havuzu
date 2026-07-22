@@ -1,57 +1,44 @@
-import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 export const runtime = 'edge';
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { slug, fileName, fileBase64, mimeType } = body;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    if (!fileBase64 || !slug) {
-      return NextResponse.json(
-        { success: false, error: 'Eksik dosya veya düğün bilgisi.' },
-        { status: 400 }
-      );
+export async function GET(request: Request) {
+  try {
+    const now = new Date().toISOString();
+
+    // Süresi dolmuş ve hala aktif olan düğümleri bul
+    const { data: expiredWeddings, error } = await supabase
+      .from('dugunler')
+      .select('*')
+      .lt('expire_at', now)
+      .neq('status', 'completed');
+
+    if (error) {
+      return Response.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    // URL'yi ortam değişkeni yerine doğrudan buraya hatasız gömüyoruz
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbzFViXBdHK9gXPhRQnyuEMzlqqe_y5uwhm4HA7l6_HGFdZyUNtUAgPkBVNrYmHb6ViY/exec';
+    if (!expiredWeddings || expiredWeddings.length === 0) {
+      return Response.json({ success: true, message: 'Süresi dolan aktif havuz bulunamadı.' });
+    }
 
-    const response = await fetch(scriptUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8',
-      },
-      body: JSON.stringify({
-        slug,
-        fileName: fileName || `photo-${Date.now()}.jpg`,
-        fileBase64,
-        mimeType: mimeType || 'image/jpeg',
-      }),
+    // Süresi dolanların durumunu 'completed' (tamamlandı) olarak güncelle
+    for (const wedding of expiredWeddings) {
+      await supabase
+        .from('dugunler')
+        .update({ status: 'completed' })
+        .eq('id', wedding.id);
+    }
+
+    return Response.json({ 
+      success: true, 
+      closedCount: expiredWeddings.length,
+      message: `${expiredWeddings.length} adet süresi dolan havuz arşive kaldırıldı.` 
     });
 
-    const textResponse = await response.text();
-    let result;
-    try {
-      result = JSON.parse(textResponse);
-    } catch (e) {
-      console.error('Google Raw Response:', textResponse);
-      throw new Error('Google Drive bağlantı yanıtı işlenemedi.');
-    }
-
-    if (result.status === 'success') {
-      return NextResponse.json({
-        success: true,
-        fileId: result.fileId,
-        fileUrl: result.fileUrl,
-      });
-    } else {
-      throw new Error(result.message || 'Drive yükleme hatası.');
-    }
   } catch (err: any) {
-    console.error('Upload Route Error:', err);
-    return NextResponse.json(
-      { success: false, error: err.message || 'Sunucu hatası.' },
-      { status: 500 }
-    );
+    return Response.json({ success: false, error: err.message }, { status: 500 });
   }
 }
