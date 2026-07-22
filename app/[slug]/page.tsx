@@ -1,4 +1,5 @@
 'use client';
+const REAL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFViXBdHK9gXPhRQnyuEMzlqqe_y5uwhm4HA7l6_HGFdZyUNtUAgPkBVNrYmHb6ViY/exec";
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
@@ -67,7 +68,7 @@ export default function WeddingUploadPage() {
 
     try {
       // YENİ VE DOĞRU GOOGLE APPS SCRIPT URL'N BURAYA ENTEGRE EDİLDİ
-      const scriptUrl = 'https://script.google.com/macros/s/AKfycbx14Abe_kuS08_ztJdwBbinwkhhRemVmGYPsI5NPbxg8p0U3aAtoFEpesjcEAb3MQWp/exec';
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbzFViXBdHK9gXPhRQnyuEMzlqqe_y5uwhm4HA7l6_HGFdZyUNtUAgPkBVNrYmHb6ViY/exec';
 
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];

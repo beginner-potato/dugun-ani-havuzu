@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     // URL'yi ortam değişkeni yerine doğrudan buraya hatasız gömüyoruz
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbx14Abe_kuS08_ztJdwBbinwkhhRemVmGYPsI5NPbxg8p0U3aAtoFEpesjcEAb3MQWp/exec';
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbzFViXBdHK9gXPhRQnyuEMzlqqe_y5uwhm4HA7l6_HGFdZyUNtUAgPkBVNrYmHb6ViY/exec';
 
     const response = await fetch(scriptUrl, {
       method: 'POST',
