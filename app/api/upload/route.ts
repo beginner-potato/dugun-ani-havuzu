@@ -11,7 +11,7 @@ export async function POST(request: Request) {
         { success: false, error: 'Eksik dosya veya düğün bilgisi.' },
         { status: 400 }
       );
-    }
+    } 
 
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbx14Abe_kuS08_ztJdwBbinwkhhRemVmGYPsI5NPbxg8p0U3aAtoFEpesjcEAb3MQWp/exec';
     if (!scriptUrl) {
