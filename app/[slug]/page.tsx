@@ -66,7 +66,7 @@ export default function WeddingUploadPage() {
     setUploadProgress(30);
 
     try {
-      // Apps Script Web App URL'ni buraya yapıştıracaksın kanka
+      // YENİ VE DOĞRU GOOGLE APPS SCRIPT URL'N BURAYA ENTEGRE EDİLDİ
       const scriptUrl = 'https://script.google.com/macros/s/AKfycbx14Abe_kuS08_ztJdwBbinwkhhRemVmGYPsI5NPbxg8p0U3aAtoFEpesjcEAb3MQWp/exec';
 
       for (let i = 0; i < selectedFiles.length; i++) {
@@ -78,7 +78,6 @@ export default function WeddingUploadPage() {
           reader.readAsDataURL(file);
           reader.onload = () => {
             const result = reader.result as string;
-            // "data:image/jpeg;base64,..." kısmından sadece base64 verisini alıyoruz
             const base64Code = result.split(',')[1];
             resolve(base64Code);
           };
@@ -87,7 +86,7 @@ export default function WeddingUploadPage() {
 
         // Apps Script'in beklediği JSON yapısı
         const payload = {
-          slug: slug, // Hangi düğün klasörüne gideceğini belirtiyor
+          slug: slug,
           fileBase64: base64Data,
           fileName: file.name,
           mimeType: file.type || 'image/jpeg'
@@ -96,7 +95,7 @@ export default function WeddingUploadPage() {
         // Apps Script'e POST isteği atıyoruz
         await fetch(scriptUrl, {
           method: 'POST',
-          mode: 'no-cors', // Apps Script CORS engeline takılmamak için
+          mode: 'no-cors',
           headers: {
             'Content-Type': 'application/json',
           },
@@ -144,10 +143,7 @@ export default function WeddingUploadPage() {
     );
   }
 
-  // BURASI YENİ EKLENDİ: Havuzun kapalı olup olmadığını kontrol ediyoruz
-  // Sadece status açıkça 'completed' veya 'closed' ise kapat, yoksa varsayılan olarak hep açık olsun!
-// Tabloda status kolonu olmadığı için sadece expire_at tarihine bakıyoruz. Tarih dolmadıysa havuz her zaman açık!
-const isClosed = wedding.expire_at ? new Date(wedding.expire_at) < new Date() : false;
+  const isClosed = wedding.expire_at ? new Date(wedding.expire_at) < new Date() : false;
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
@@ -168,8 +164,6 @@ const isClosed = wedding.expire_at ? new Date(wedding.expire_at) < new Date() : 
 
       {/* Main Form Container */}
       <div className="w-full max-w-md my-6 bg-slate-900/80 border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md space-y-6">
-        
-        {/* EĞER HAVUZ KAPALIYSA BU EKRAN GÖRÜNECEK */}
         {isClosed ? (
           <div className="text-center space-y-4 py-8">
             <div className="w-16 h-16 mx-auto bg-slate-800 border border-slate-700 text-slate-400 rounded-full flex items-center justify-center text-2xl">

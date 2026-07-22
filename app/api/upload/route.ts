@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL;
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbx14Abe_kuS08_ztJdwBbinwkhhRemVmGYPsI5NPbxg8p0U3aAtoFEpesjcEAb3MQWp/exec';
     if (!scriptUrl) {
       return NextResponse.json(
         { success: false, error: 'Google Script URL konfigüre edilmemiş.' },
