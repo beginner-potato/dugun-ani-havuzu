@@ -33,7 +33,7 @@ export default function HomePage() {
 
       {/* Hero Section */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 text-center space-y-10 my-auto">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs sm:text-sm font-medium animate-pulse">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs sm:text-sm font-medium">
           <span>✨</span> Profesyonel Düğün Fotoğrafçıları İçin Yeni Nesil Anı Havuzu
         </div>
 
@@ -80,9 +80,9 @@ export default function HomePage() {
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-lg font-bold border border-amber-500/20">
               🖨️
             </div>
-            <h3 className="font-bold text-white text-base">QR Masa Kartları</h3>
+            <h3 className="font-bold text-white text-base">QR Masa Kartlari</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Her düğün için özel tasarlanmış QR kartlarını tek tıkla PNG olarak indirip matbaada bastırabilirsiniz.
+              Her dugun icin ozel tasarlanmis QR kartlarini tek tikla PNG olarak indirip matbaada bastirabilirsiniz.
             </p>
           </div>
 
@@ -92,7 +92,7 @@ export default function HomePage() {
             </div>
             <h3 className="font-bold text-white text-base">Google Drive Entegrasyonu</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Tüm dosyalar doğrudan sizin belirlediğiniz Drive klasörüne akar. Belirlediğiniz süre sonunda otomatik kilitlenir.
+              Tum dosyalar doğrudan sizin belirlediğiniz Drive klasörüne akar. Belirlediğiniz süre sonunda otomatik kilitlenir.
             </p>
           </div>
         </div>
