@@ -14,6 +14,8 @@ interface Wedding {
   coupleNames: string;
   gelinAdi: string;
   damatAdi: string;
+  salonAdi: string;
+  etkinlikTarihi: string;
   slug: string;
   date: string;
   createdAtRaw: string;
@@ -49,7 +51,10 @@ export default function AdminDashboard() {
 
   // Form States (Create & Edit)
   const [formId, setFormId] = useState('');
-  const [formCouple, setFormCouple] = useState('');
+  const [formGelinAdi, setFormGelinAdi] = useState('');
+  const [formDamatAdi, setFormDamatAdi] = useState('');
+  const [formSalonAdi, setFormSalonAdi] = useState('');
+  const [formEtkinlikTarihiText, setFormEtkinlikTarihiText] = useState('');
   const [formSlug, setFormSlug] = useState('');
   const [formDate, setFormDate] = useState('');
   const [formMaxPhotos, setFormMaxPhotos] = useState(500);
@@ -68,13 +73,24 @@ export default function AdminDashboard() {
       const now = new Date();
       const formatted: Wedding[] = data.map((item: any) => {
         const isExpired = item.expire_at ? new Date(item.expire_at) < now : false;
-        const gelinAdi = item.gelin_adi || '';
-        const damatAdi = item.damat_adi || '';
+        
+        // Gösterim Başlığı Mantığı (Salon varsa o, yoksa Gelin & Damat)
+        let displayTitle = "Anı Havuzu";
+        if (item.salon_adi) {
+          displayTitle = item.salon_adi;
+        } else if (item.gelin_adi && item.damat_adi) {
+          displayTitle = `${item.gelin_adi} & ${item.damat_adi}`;
+        } else if (item.gelin_adi || item.damat_adi) {
+          displayTitle = item.gelin_adi || item.damat_adi;
+        }
+
         return {
           id: item.id,
-          coupleNames: damatAdi ? `${gelinAdi} & ${damatAdi}` : gelinAdi,
-          gelinAdi: gelinAdi,
-          damatAdi: damatAdi,
+          coupleNames: displayTitle,
+          gelinAdi: item.gelin_adi || '',
+          damatAdi: item.damat_adi || '',
+          salonAdi: item.salon_adi || '',
+          etkinlikTarihi: item.etkinlik_tarihi || '',
           slug: item.slug,
           date: item.created_at ? item.created_at.split('T')[0] : '',
           createdAtRaw: item.created_at,
@@ -142,9 +158,10 @@ export default function AdminDashboard() {
     setWeddingToDelete(null);
   };
 
-  const handleCoupleNameChange = (val: string) => {
-    setFormCouple(val);
-    const generatedSlug = val
+  const generateSlug = (gelin: string, damat: string, salon: string) => {
+    const base = salon ? salon : `${gelin} ${damat}`;
+    if (!base.trim()) return '';
+    const generated = base
       .toLowerCase()
       .trim()
       .replace(/&/g, 've')
@@ -157,14 +174,24 @@ export default function AdminDashboard() {
       .replace(/[^a-z0-9 -]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
-    setFormSlug(`${generatedSlug}-${Math.random().toString(36).substring(2, 6)}`);
+    return `${generated}-${Math.random().toString(36).substring(2, 6)}`;
+  };
+
+  const handleNameChange = (type: 'gelin' | 'damat' | 'salon', val: string) => {
+    let g = formGelinAdi, d = formDamatAdi, s = formSalonAdi;
+    if (type === 'gelin') { g = val; setFormGelinAdi(val); }
+    if (type === 'damat') { d = val; setFormDamatAdi(val); }
+    if (type === 'salon') { s = val; setFormSalonAdi(val); }
+
+    if (!isEditModalOpen) {
+      setFormSlug(generateSlug(g, d, s));
+    }
   };
 
   const handleCreateWedding = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formCouple || !formSlug) return;
+    if (!formSlug) return;
 
-    const names = formCouple.split('&').map((n) => n.trim());
     const retentionDays = Number(formRetentionDays) || 30;
     
     const finalDate = formDate ? new Date(formDate) : new Date();
@@ -172,8 +199,10 @@ export default function AdminDashboard() {
     finalDate.setHours(23, 59, 59, 999);
 
     const newEntry = {
-      gelin_adi: names[0] || formCouple,
-      damat_adi: names[1] || '',
+      gelin_adi: formGelinAdi,
+      damat_adi: formDamatAdi,
+      salon_adi: formSalonAdi,
+      etkinlik_tarihi: formEtkinlikTarihiText,
       slug: formSlug,
       drive_folder_id: 'https://drive.google.com',
       expire_at: finalDate.toISOString(),
@@ -190,12 +219,15 @@ export default function AdminDashboard() {
     fetchWeddings();
     setIsAddModalOpen(false);
     resetForms();
-    showToast('🎉 Yeni düğün başarıyla oluşturuldu!');
+    showToast('🎉 Yeni havuz başarıyla oluşturuldu!');
   };
 
   const openEditModal = (wedding: Wedding) => {
     setFormId(wedding.id);
-    setFormCouple(wedding.coupleNames);
+    setFormGelinAdi(wedding.gelinAdi);
+    setFormDamatAdi(wedding.damatAdi);
+    setFormSalonAdi(wedding.salonAdi);
+    setFormEtkinlikTarihiText(wedding.etkinlikTarihi);
     setFormSlug(wedding.slug);
     setFormDate(wedding.date);
     setFormMaxPhotos(wedding.maxPhotos);
@@ -205,7 +237,6 @@ export default function AdminDashboard() {
 
   const handleUpdateWedding = async (e: React.FormEvent) => {
     e.preventDefault();
-    const names = formCouple.split('&').map((n) => n.trim());
     const retentionDays = Number(formRetentionDays) || 30;
     
     const currentWedding = weddings.find(w => w.id === formId);
@@ -218,8 +249,10 @@ export default function AdminDashboard() {
     }
 
     const updateData = {
-      gelin_adi: names[0] || formCouple,
-      damat_adi: names[1] || '',
+      gelin_adi: formGelinAdi,
+      damat_adi: formDamatAdi,
+      salon_adi: formSalonAdi,
+      etkinlik_tarihi: formEtkinlikTarihiText,
       slug: formSlug,
       expire_at: finalDate.toISOString(),
       drive_sure_gun: retentionDays
@@ -234,11 +267,14 @@ export default function AdminDashboard() {
     fetchWeddings();
     setIsEditModalOpen(false);
     resetForms();
-    showToast('✅ Düğün bilgileri başarıyla güncellendi!');
+    showToast('✅ Havuz bilgileri başarıyla güncellendi!');
   };
 
   const resetForms = () => {
-    setFormCouple('');
+    setFormGelinAdi('');
+    setFormDamatAdi('');
+    setFormSalonAdi('');
+    setFormEtkinlikTarihiText('');
     setFormSlug('');
     setFormDate('');
     setFormRetentionDays(30);
@@ -268,7 +304,8 @@ export default function AdminDashboard() {
   };
 
   const filteredWeddings = weddings.filter((w) => {
-    const matchesSearch = w.coupleNames.toLowerCase().includes(searchTerm.toLowerCase()) || w.slug.includes(searchTerm.toLowerCase());
+    const searchTarget = `${w.coupleNames} ${w.etkinlikTarihi} ${w.slug}`.toLowerCase();
+    const matchesSearch = searchTarget.includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || w.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
@@ -370,7 +407,7 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-slate-800/30 p-4 rounded-2xl border border-slate-800">
           <div className="flex flex-col sm:flex-row items-center gap-3 flex-1">
             <div className="relative w-full sm:w-80">
-              <input type="text" placeholder="Düğün veya çift ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:border-rose-500 transition" />
+              <input type="text" placeholder="Düğün veya salon ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:border-rose-500 transition" />
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
               {['all', 'active', 'completed'].map((st) => (
@@ -381,7 +418,7 @@ export default function AdminDashboard() {
             </div>
           </div>
           <button onClick={() => { resetForms(); setIsAddModalOpen(true); }} className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-semibold text-sm rounded-xl cursor-pointer">
-            + Yeni Düğün Ekle
+            + Yeni Etkinlik Ekle
           </button>
         </div>
 
@@ -404,7 +441,8 @@ export default function AdminDashboard() {
                   <div className="flex items-start justify-between gap-3 mb-3 pr-10">
                     <div>
                       <h3 className="text-xl font-bold text-white group-hover:text-rose-400 transition">{wedding.coupleNames}</h3>
-                      <p className="text-xs text-slate-400 font-mono mt-0.5">/{wedding.slug}</p>
+                      {wedding.etkinlikTarihi && <p className="text-xs text-amber-400 font-semibold mt-1">{wedding.etkinlikTarihi}</p>}
+                      <p className="text-xs text-slate-400 font-mono mt-1">/{wedding.slug}</p>
                     </div>
                   </div>
 
@@ -412,7 +450,7 @@ export default function AdminDashboard() {
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${wedding.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-700 text-slate-400'}`}>
                       {wedding.status === 'active' ? '🟢 Aktif' : '⚪ Bitti'}
                     </span>
-                    <span className="text-xs text-slate-400">Tarih: {wedding.date}</span>
+                    <span className="text-xs text-slate-400">Oluşturuldu: {wedding.date}</span>
                   </div>
 
                   <div className="space-y-1.5 mb-6">
@@ -450,20 +488,37 @@ export default function AdminDashboard() {
         </div>
       </main>
 
+      {/* YENİ ETKİNLİK MODALI */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-xl shadow-2xl space-y-6">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-xl font-bold text-white">Yeni Düğün Havuzu Oluştur</h3>
+              <h3 className="text-xl font-bold text-white">Yeni Etkinlik Havuzu Oluştur</h3>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white transition p-1 cursor-pointer">✕</button>
             </div>
             <form onSubmit={handleCreateWedding} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Gelin & Damat İsimleri</label>
-                <input type="text" required placeholder="Örn: Ayşe & Ahmet" value={formCouple} onChange={(e) => handleCoupleNameChange(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Gelin Adı (İsteğe Bağlı)</label>
+                  <input type="text" placeholder="Örn: Ayşe" value={formGelinAdi} onChange={(e) => handleNameChange('gelin', e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Damat Adı (İsteğe Bağlı)</label>
+                  <input type="text" placeholder="Örn: Ahmet" value={formDamatAdi} onChange={(e) => handleNameChange('damat', e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Salon / Mekan Adı (Varsa)</label>
+                  <input type="text" placeholder="Örn: Altınköşk" value={formSalonAdi} onChange={(e) => handleNameChange('salon', e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Görünecek Tarih Yazısı</label>
+                  <input type="text" placeholder="Örn: 23.07.2026" value={formEtkinlikTarihiText} onChange={(e) => setFormEtkinlikTarihiText(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Web Adresi (Slug)</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Web Adresi (Otomatik Link / Slug)</label>
                 <div className="flex items-center bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-400">
                   <span className="text-slate-500 mr-1">dugun.app/</span>
                   <input type="text" required value={formSlug} onChange={(e) => setFormSlug(e.target.value)} className="bg-transparent text-white focus:outline-none w-full font-mono" />
@@ -471,17 +526,13 @@ export default function AdminDashboard() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Tarih</label>
-                  <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Sistem Kayıt Tarihi (Arka Plan)</label>
+                  <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-400 focus:border-rose-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Max Fotoğraf</label>
-                  <input type="number" value={formMaxPhotos} onChange={(e) => setFormMaxPhotos(Number(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Drive Saklama (Gün)</label>
+                  <input type="number" min="1" max="365" value={formRetentionDays} onChange={(e) => setFormRetentionDays(Number(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Drive Saklama Süresi (Gün)</label>
-                <input type="number" min="1" max="365" value={formRetentionDays} onChange={(e) => setFormRetentionDays(Number(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer">İptal</button>
@@ -492,17 +543,34 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* DÜZENLEME MODALI */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-xl shadow-2xl space-y-6">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-xl font-bold text-white">Düğün Havuzunu Düzenle</h3>
+              <h3 className="text-xl font-bold text-white">Havuzu Düzenle</h3>
               <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-white transition p-1 cursor-pointer">✕</button>
             </div>
             <form onSubmit={handleUpdateWedding} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Gelin & Damat İsimleri</label>
-                <input type="text" required value={formCouple} onChange={(e) => setFormCouple(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Gelin Adı</label>
+                  <input type="text" value={formGelinAdi} onChange={(e) => setFormGelinAdi(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Damat Adı</label>
+                  <input type="text" value={formDamatAdi} onChange={(e) => setFormDamatAdi(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Salon / Mekan Adı</label>
+                  <input type="text" value={formSalonAdi} onChange={(e) => setFormSalonAdi(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Görünecek Tarih Yazısı</label>
+                  <input type="text" value={formEtkinlikTarihiText} onChange={(e) => setFormEtkinlikTarihiText(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-rose-500" />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5">Web Adresi (Slug)</label>
@@ -525,6 +593,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* SİLME ONAY MODALI */}
       {weddingToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-rose-500/30 rounded-3xl p-6 w-full max-w-sm shadow-2xl shadow-rose-500/10 text-center space-y-5">
@@ -534,7 +603,7 @@ export default function AdminDashboard() {
             <div>
               <h3 className="text-xl font-bold text-white mb-2">Emin misiniz?</h3>
               <p className="text-sm text-slate-400">
-                <strong className="text-rose-400">{weddingToDelete.coupleNames}</strong> düğün havuzunu siliyorsunuz. Bu işlem geri alınamaz.
+                <strong className="text-rose-400">{weddingToDelete.coupleNames}</strong> havuzunu siliyorsunuz. Bu işlem geri alınamaz.
               </p>
             </div>
             <div className="flex gap-3 pt-2">
@@ -545,6 +614,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* QR MODALI */}
       {selectedQrWedding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl flex flex-col items-center space-y-6">
@@ -556,7 +626,9 @@ export default function AdminDashboard() {
             <div ref={qrRef} className="w-full bg-gradient-to-b from-rose-50 to-amber-50 p-8 rounded-3xl text-slate-800 text-center shadow-xl border-[6px] border-white flex flex-col items-center space-y-5">
               <div>
                 <div className="text-3xl font-serif font-bold text-rose-900 leading-tight">{selectedQrWedding.coupleNames}</div>
-                <p className="text-[10px] uppercase tracking-[0.3em] text-rose-700 font-bold mt-2">Düğün Anı Havuzu</p>
+                <p className="text-[10px] uppercase tracking-[0.3em] text-rose-700 font-bold mt-2">
+                  {selectedQrWedding.etkinlikTarihi ? selectedQrWedding.etkinlikTarihi : "Anı Havuzu"}
+                </p>
               </div>
 
               <div className="p-4 bg-white rounded-3xl shadow-md border border-rose-100">

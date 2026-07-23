@@ -72,7 +72,7 @@ export default function WeddingUploadPage() {
   const [loading, setLoading] = useState(true);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [guestName, setGuestName] = useState('');
-  const [kvkkAccepted, setKvkkAccepted] = useState(false); // KVKK Onay State'i
+  const [kvkkAccepted, setKvkkAccepted] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [successMessage, setSuccessMessage] = useState(false);
@@ -175,8 +175,8 @@ export default function WeddingUploadPage() {
       <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 text-center">
         <div className="space-y-3 max-w-md">
           <div className="text-4xl">🔍</div>
-          <h1 className="text-xl font-bold">Düğün Havuzu Bulunamadı</h1>
-          <p className="text-xs text-slate-400">Aradığınız düğün anı havuzu aktif değil veya böyle bir adres bulunmuyor.</p>
+          <h1 className="text-xl font-bold">Etkinlik Havuzu Bulunamadı</h1>
+          <p className="text-xs text-slate-400">Aradığınız anı havuzu aktif değil veya böyle bir adres bulunmuyor.</p>
         </div>
       </main>
     );
@@ -188,13 +188,17 @@ export default function WeddingUploadPage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
+      
+      {/* BAŞLIK KISMI GÜNCELLENDİ */}
       <div className="w-full max-w-md text-center space-y-3 pt-6">
         <div className="w-14 h-14 mx-auto rounded-3xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center text-2xl shadow-xl shadow-rose-500/20">💍</div>
         <div>
           <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-wide">
-            {wedding.gelin_adi} & {wedding.damat_adi}
+            {wedding.salon_adi ? wedding.salon_adi : (wedding.gelin_adi && wedding.damat_adi ? `${wedding.gelin_adi} & ${wedding.damat_adi}` : "Anı Havuzu")}
           </h1>
-          <p className="text-xs uppercase tracking-widest text-rose-400 font-semibold mt-1">Düğün Anı Havuzu</p>
+          <p className="text-xs uppercase tracking-widest text-rose-400 font-semibold mt-1">
+            {wedding.etkinlik_tarihi ? wedding.etkinlik_tarihi : "Düğün Anı Havuzu"}
+          </p>
         </div>
       </div>
 
@@ -204,7 +208,7 @@ export default function WeddingUploadPage() {
             <div className="w-16 h-16 mx-auto bg-slate-800 border border-slate-700 text-slate-400 rounded-full flex items-center justify-center text-2xl">🔒</div>
             <h3 className="text-xl font-bold text-white">Havuz Kapandı</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Bu düğün anı havuzu arşive kaldırılmıştır. Katılımınız ve paylaştığınız güzel anılar için teşekkür ederiz!
+              Bu anı havuzu arşive kaldırılmıştır. Katılımınız ve paylaştığınız güzel anılar için teşekkür ederiz!
             </p>
           </div>
         ) : successMessage ? (
@@ -212,7 +216,7 @@ export default function WeddingUploadPage() {
             <div className="w-16 h-16 mx-auto bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center text-2xl animate-bounce">✨</div>
             <h3 className="text-xl font-bold text-white">Harikasınız!</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Fotoğraflarınız başarıyla havuza eklendi. Çifte mutluluklar dileriz!
+              Fotoğraflarınız başarıyla havuza eklendi. Mutluluklar dileriz!
             </p>
             <button
               onClick={() => setSuccessMessage(false)}
@@ -302,7 +306,7 @@ export default function WeddingUploadPage() {
         )}
       </div>
 
-      <footer className="text-center text-[11px] text-slate-500 pb-4">Düğün Anı Havuzu Sistemi ✨</footer>
+      <footer className="text-center text-[11px] text-slate-500 pb-4">Etkinlik Anı Havuzu Sistemi ✨</footer>
     </main>
   );
 }
