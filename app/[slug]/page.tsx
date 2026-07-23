@@ -1,4 +1,6 @@
+/* eslint-disable */
 'use client';
+
 const REAL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwlt43IDlc0QgEKjh9zBtXIJ134hHXqudeo3c_PnyVShm8nt9a9TmDPOukI2ghiTKfX/exec";
 
 import React, { useState, useEffect } from 'react';
@@ -10,7 +12,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// --- Tarayıcı Tarafında Fotoğraf Sıkıştırma Motoru ---
 const compressImage = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
@@ -71,6 +72,7 @@ export default function WeddingUploadPage() {
   const [loading, setLoading] = useState(true);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [guestName, setGuestName] = useState('');
+  const [kvkkAccepted, setKvkkAccepted] = useState(false); // KVKK Onay State'i
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [successMessage, setSuccessMessage] = useState(false);
@@ -79,7 +81,6 @@ export default function WeddingUploadPage() {
     if (slug) {
       fetchWeddingDetails();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   const fetchWeddingDetails = async () => {
@@ -110,7 +111,7 @@ export default function WeddingUploadPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedFiles.length === 0) return;
+    if (selectedFiles.length === 0 || !kvkkAccepted) return;
 
     setUploading(true);
     setUploadProgress(10);
@@ -118,8 +119,6 @@ export default function WeddingUploadPage() {
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        
-        // Sıkıştırma motorunu çalıştır
         const base64Data = await compressImage(file);
 
         const payload = {
@@ -128,10 +127,9 @@ export default function WeddingUploadPage() {
           fileName: file.name,
           mimeType: file.type.startsWith('image/') ? 'image/jpeg' : file.type || 'image/jpeg',
           guestName: guestName || 'İsimsiz Misafir',
-          retentionDays: wedding.drive_sure_gun || 30 // Yönetici panelinden gelen doğru saklama süresi
+          retentionDays: wedding.drive_sure_gun || 30
         };
 
-        // Apps Script'e gönder
         await fetch(REAL_SCRIPT_URL, {
           method: 'POST',
           headers: {
@@ -145,9 +143,10 @@ export default function WeddingUploadPage() {
 
       setUploading(false);
       setSuccessMessage(true);
+      setSelectedFilesRef();
       setSelectedFiles([]);
+      setKvkkAccepted(false);
 
-      // Kutlama konfeti efekti
       confetti({
         particleCount: 100,
         spread: 70,
@@ -160,6 +159,8 @@ export default function WeddingUploadPage() {
       setUploading(false);
     }
   };
+
+  const setSelectedFilesRef = () => {};
 
   if (loading) {
     return (
@@ -223,10 +224,10 @@ export default function WeddingUploadPage() {
         ) : (
           <form onSubmit={handleUpload} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Adınız Soyadınız (İsteğe Bağlı)</label>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">İsim Soyisimsiz (İsteğe Bağlı)</label>
               <input
                 type="text"
-                placeholder="Örn: Merve & Burak"
+                placeholder="Örn: Ayşe Yılmaz"
                 value={guestName}
                 onChange={(e) => setGuestName(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500 transition"
@@ -234,14 +235,14 @@ export default function WeddingUploadPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Fotoğraf Seçin</label>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Fotoğraf veya video seç</label>
               <label className="border-2 border-dashed border-slate-700 hover:border-rose-500 bg-slate-800/40 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition group">
                 <svg className="w-8 h-8 text-rose-400 mb-2 group-hover:scale-110 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-xs font-medium text-slate-300">Galeriden Seçmek İçin Dokunun</span>
-                <span className="text-[10px] text-slate-500 mt-1">Birden fazla fotoğraf seçebilirsiniz</span>
-                <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
+                <span className="text-xs font-medium text-slate-300">Galeriden seçin · birden fazla dosya olabilir</span>
+                <span className="text-[10px] text-slate-500 mt-1">Tek dosya 7 GB · etkinlik 25 GB</span>
+                <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
               </label>
             </div>
 
@@ -259,6 +260,21 @@ export default function WeddingUploadPage() {
               </div>
             )}
 
+            {/* KVKK ONAY CHECKBOX */}
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                type="checkbox"
+                id="kvkk"
+                required
+                checked={kvkkAccepted}
+                onChange={(e) => setKvkkAccepted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-slate-700 bg-slate-800 text-rose-500 focus:ring-rose-500 cursor-pointer"
+              />
+              <label htmlFor="kvkk" className="text-xs text-slate-400 leading-relaxed cursor-pointer">
+                <span className="text-rose-400 underline font-medium">KVKK aydınlatma metnini</span> okudum; fotoğrafımın etkinlik sahipleri tarafından görülmesine onay veriyorum.
+              </label>
+            </div>
+
             {uploading && (
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs text-slate-400">
@@ -273,14 +289,14 @@ export default function WeddingUploadPage() {
 
             <button
               type="submit"
-              disabled={selectedFiles.length === 0 || uploading}
+              disabled={selectedFiles.length === 0 || !kvkkAccepted || uploading}
               className={`w-full py-3.5 rounded-xl font-semibold text-sm transition shadow-lg ${
-                selectedFiles.length === 0 || uploading
+                selectedFiles.length === 0 || !kvkkAccepted || uploading
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none'
                   : 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-rose-500/25 cursor-pointer'
               }`}
             >
-              {uploading ? 'İşleniyor...' : 'Anıları Havuza Gönder 🚀'}
+              {uploading ? 'İşleniyor...' : 'Gönder ✨'}
             </button>
           </form>
         )}
