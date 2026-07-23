@@ -41,7 +41,7 @@ export default function AdminDashboard() {
   const [newSlug, setNewSlug] = useState('');
   const [newDate, setNewDate] = useState('');
   const [newMaxPhotos, setNewMaxPhotos] = useState(500);
-  const [newRetentionDays, setNewRetentionDays] = useState(30); // 👈 Yeni eklenen saklama süresi (gün)
+  const [newRetentionDays, setNewRetentionDays] = useState(30);
 
   // Oturum kontrolü
   useEffect(() => {
@@ -71,21 +71,30 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from('dugunler')
       .select('*')
+      .eq('is_deleted', false) // Silinmiş düğünleri ekrana getirme
       .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Düğünler çekilemedi:', error);
     } else if (data) {
-      const formatted: Wedding[] = data.map((item: any) => ({
-        id: item.id,
-        coupleNames: `${item.gelin_adi || ''} & ${item.damat_adi || ''}`,
-        slug: item.slug,
-        date: item.created_at ? item.created_at.split('T')[0] : '2026-08-15',
-        photoCount: 0,
-        maxPhotos: 500,
-        status: 'active' as const,
-        driveUrl: item.drive_folder_id || ''
-      }));
+      const now = new Date();
+      const formatted: Wedding[] = data.map((item: any) => {
+        // Süresi dolmuş mu kontrolü
+        const isExpired = item.expire_at ? new Date(item.expire_at) < now : false;
+        
+        return {
+          id: item.id,
+          coupleNames: item.damat_adi 
+            ? `${item.gelin_adi || ''} & ${item.damat_adi}` 
+            : (item.gelin_adi || ''),
+          slug: item.slug,
+          date: item.created_at ? item.created_at.split('T')[0] : '',
+          photoCount: 0,
+          maxPhotos: 500,
+          status: isExpired ? ('completed' as const) : ('active' as const),
+          driveUrl: item.drive_folder_id || ''
+        };
+      });
 
       setWeddings(formatted);
     }
@@ -162,35 +171,30 @@ export default function AdminDashboard() {
 
     const names = newCouple.split('&').map((n) => n.trim());
     const gelinAdi = names[0] || newCouple;
-    const damat_adi = names[1] || '';
+    const damatAdi = names[1] || '';
 
-    // Seçilen gün sayısına göre expire_at tarihini otomatik hesaplıyoruz
+    const retentionDays = Number(newRetentionDays) || 30;
     const finalDate = newDate ? new Date(newDate) : new Date();
     if (!newDate) {
-      finalDate.setDate(finalDate.getDate() + Number(newRetentionDays));
+      finalDate.setDate(finalDate.getDate() + retentionDays);
     }
     finalDate.setHours(23, 59, 59, 999);
 
     const newEntry = {
       gelin_adi: gelinAdi,
-      damat_adi: damat_adi,
+      damat_adi: damatAdi,
       slug: newSlug,
       drive_folder_id: 'https://drive.google.com',
       expire_at: finalDate.toISOString(),
-      drive_sure_gun: Number(newRetentionDays) // ✅ Doğrudan senin sütun adın
+      drive_sure_gun: retentionDays,
+      is_deleted: false
     };
 
-    const { data, error } = await supabase.from('dugunler').insert([newEntry]).select();
-
-    if (error) {
-      console.error('Supabase Detaylı Hata:', error);
-      alert(`Kayıt Hatası: ${error.message} (Kod: ${error.code})`);
-      return;
-    }
+    const { error } = await supabase.from('dugunler').insert([newEntry]);
 
     if (error) {
       console.error('Kayıt hatası:', error);
-      showToast('❌ Hata: Bu web adresi (slug) zaten alınmış olabilir!');
+      alert(`Kayıt Hatası: ${error.message}`);
       return;
     }
 
@@ -578,7 +582,6 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* 👈 YENİ EKLENEN KISIM: Drive'da Saklama Süresi (Gün) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                   Drive Saklama Süresi (Gün Olarak)
