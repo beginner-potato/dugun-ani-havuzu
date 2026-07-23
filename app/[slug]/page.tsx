@@ -135,7 +135,7 @@ export default function WeddingUploadPage() {
           fileName: file.name,
           mimeType: file.type.startsWith('image/') ? 'image/jpeg' : file.type || 'image/jpeg',
           guestName: guestName || 'İsimsiz Misafir',
-          retentionDays: wedding.storage_retention_days || 30
+          retentionDays: wedding.drive_sure_gun || 30 // ✅ Senin veritabanı sütunun
         };
 
         // Apps Script'e text/plain formatında POST isteği
