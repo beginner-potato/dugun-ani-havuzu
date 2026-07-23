@@ -11,6 +11,62 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// --- Yeni Sıkıştırma Fonksiyonu ---
+const compressImage = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    // Sadece resim dosyalarını sıkıştır (videoları atla)
+    if (!file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = (error) => reject(error);
+      return;
+    }
+
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      img.src = e.target?.result as string;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        reject(new Error('Canvas bağlamı alınamadı.'));
+        return;
+      }
+
+      // Maksimum genişlik veya yükseklik (Dilersen değiştirebilirsin)
+      const MAX_SIZE = 1200;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height && width > MAX_SIZE) {
+        height *= MAX_SIZE / width;
+        width = MAX_SIZE;
+      } else if (height > MAX_SIZE) {
+        width *= MAX_SIZE / height;
+        height = MAX_SIZE;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Kalite ayarı (0.7 = %70 kalite, iyi bir denge sağlar)
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      resolve(compressedDataUrl.split(',')[1]);
+    };
+
+    img.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function WeddingUploadPage() {
   const params = useParams();
   const slug = params?.slug as string;
@@ -42,7 +98,7 @@ export default function WeddingUploadPage() {
     } else {
       setWedding(data);
     }
-    setLoading(false);
+    loading && setLoading(false);
   };
 
   // Dosya seçme
@@ -58,36 +114,26 @@ export default function WeddingUploadPage() {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Fotoğrafları Google Apps Script (Drive) Web App'e gönderen fonksiyon (CORS aşımı için text/plain)
+  // Fotoğrafları Google Apps Script (Drive) Web App'e gönderen fonksiyon
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedFiles.length === 0) return;
 
     setUploading(true);
-    setUploadProgress(30);
+    setUploadProgress(10); // İşlem başlıyor hissi
 
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         
-        // Dosyayı Base64 formatına çeviriyoruz
-        const base64Data = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => {
-            const result = reader.result as string;
-            const base64Code = result.split(',')[1];
-            resolve(base64Code);
-          };
-          reader.onerror = (error) => reject(error);
-        });
+        // Yeni sıkıştırma fonksiyonunu kullanarak Base64 elde ediyoruz
+        const base64Data = await compressImage(file);
 
-        // Apps Script'in beklediği JSON yapısı (Drive saklama süresi de eklendi)
         const payload = {
           slug: slug,
           fileBase64: base64Data,
           fileName: file.name,
-          mimeType: file.type || 'image/jpeg',
+          mimeType: file.type.startsWith('image/') ? 'image/jpeg' : file.type || 'image/jpeg',
           guestName: guestName || 'İsimsiz Misafir',
           retentionDays: wedding.storage_retention_days || 30
         };
@@ -101,6 +147,7 @@ export default function WeddingUploadPage() {
           body: JSON.stringify(payload)
         });
 
+        // İlerleme çubuğunu güncelle
         setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
       }
 
@@ -210,7 +257,7 @@ export default function WeddingUploadPage() {
             {/* Dosya Seçim Alanı */}
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Fotoğraf veya Video Seçin
+                Fotoğraf Seçin
               </label>
               <label className="border-2 border-dashed border-slate-700 hover:border-rose-500 bg-slate-800/40 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition group">
                 <svg className="w-8 h-8 text-rose-400 mb-2 group-hover:scale-110 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -221,7 +268,7 @@ export default function WeddingUploadPage() {
                 <input
                   type="file"
                   multiple
-                  accept="image/*,video/*"
+                  accept="image/*"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -253,7 +300,7 @@ export default function WeddingUploadPage() {
             {uploading && (
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>Yükleniyor...</span>
+                  <span>Sıkıştırılıyor ve Yükleniyor...</span>
                   <span>{uploadProgress}%</span>
                 </div>
                 <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
@@ -274,7 +321,7 @@ export default function WeddingUploadPage() {
                   : 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-rose-500/25 cursor-pointer'
               }`}
             >
-              {uploading ? 'Yükleniyor...' : 'Anıları Havuza Gönder 🚀'}
+              {uploading ? 'İşleniyor...' : 'Anıları Havuza Gönder 🚀'}
             </button>
           </form>
         )}
