@@ -1,7 +1,7 @@
 /* eslint-disable */
 'use client';
 
-const REAL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzM0wUL5O8s5-LJvwrgtrC5j_eZZN6Mi3DGsA3-XpiaEb_fwxr6ktJGv2gc3rpt-Obc/exec";
+const REAL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZGeG3ri5bLYtcuLzgecKJlsmgnQv5GYqdwe_npHi8ouNcoj2PNNHlaHdXcTD1ZeeA/exec";
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';

@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       );
     } 
 
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbzM0wUL5O8s5-LJvwrgtrC5j_eZZN6Mi3DGsA3-XpiaEb_fwxr6ktJGv2gc3rpt-Obc/exec';
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbyZGeG3ri5bLYtcuLzgecKJlsmgnQv5GYqdwe_npHi8ouNcoj2PNNHlaHdXcTD1ZeeA/exec';
     if (!scriptUrl) {
       return NextResponse.json(
         { success: false, error: 'Google Script URL konfigüre edilmemiş.' },
