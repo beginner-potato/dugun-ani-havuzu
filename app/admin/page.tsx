@@ -96,7 +96,7 @@ export default function AdminDashboard() {
           slug: item.slug,
           date: item.created_at ? item.created_at.split('T')[0] : '',
           createdAtRaw: item.created_at,
-          photoCount: 0,
+          photoCount: item.photo_count || 0, // <--- BURASI DİNAMİK YAPILDI
           maxPhotos: 500,
           status: isExpired ? 'completed' : 'active',
           driveUrl: item.drive_folder_id || '',
