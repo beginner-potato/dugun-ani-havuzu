@@ -115,8 +115,26 @@ export default function AdminDashboard() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // REALTIME (Eşzamanlı) Dinleyici Eklenmesi
   useEffect(() => {
-    if (session) fetchWeddings();
+    if (!session) return;
+    
+    fetchWeddings();
+
+    const channel = supabase
+      .channel('dugunler_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'dugunler' },
+        () => {
+          fetchWeddings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [session]);
 
   const showToast = (msg: string) => {
@@ -214,7 +232,6 @@ export default function AdminDashboard() {
       return;
     }
 
-    fetchWeddings();
     setIsAddModalOpen(false);
     resetForms();
     showToast('🎉 Yeni havuz başarıyla oluşturuldu!');
@@ -262,7 +279,6 @@ export default function AdminDashboard() {
       return;
     }
 
-    fetchWeddings();
     setIsEditModalOpen(false);
     resetForms();
     showToast('✅ Havuz bilgileri başarıyla güncellendi!');
@@ -359,7 +375,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans pb-10">
-      {/* Yazdırma Esnasında Sadece Kartın Görünmesini Sağlayan Stil */}
       <style jsx global>{`
         @media print {
           body * {
