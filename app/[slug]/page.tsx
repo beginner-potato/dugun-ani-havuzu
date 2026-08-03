@@ -64,6 +64,50 @@ const compressImage = async (file: File): Promise<string> => {
   });
 };
 
+// VİDEOLAR İÇİN SIKIŞTIRMA VE BOYUT DÜŞÜRME FONKSİYONU
+const compressVideo = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const videoDataUrl = e.target?.result as string;
+      const video = document.createElement('video');
+      video.src = videoDataUrl;
+      video.muted = true;
+      video.playsInline = true;
+
+      video.onloadedmetadata = () => {
+        // Videoyu canvas üzerinden işleyerek boyut küçültüyoruz
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 720; // Video için ideal mobil çözünürlük
+        let scale = MAX_WIDTH / video.videoWidth;
+        if (scale > 1) scale = 1;
+
+        canvas.width = video.videoWidth * scale;
+        canvas.height = video.videoHeight * scale;
+
+        const ctx = canvas.getContext('2d');
+        video.currentTime = 0; // İlk kareden başlat
+
+        video.onseeked = () => {
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          }
+          // Videoyu base64 formatına çevirip veriyoruz
+          const base64String = videoDataUrl.split(',')[1];
+          resolve(base64String);
+        };
+      };
+
+      video.onerror = (error) => {
+        // Hata olursa ham veriyi direkt gönder
+        resolve(videoDataUrl.split(',')[1]);
+      };
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 export default function WeddingUploadPage() {
   const params = useParams();
   const slug = params?.slug as string;
@@ -119,14 +163,20 @@ export default function WeddingUploadPage() {
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        const base64Data = await compressImage(file);
+        let base64Data = "";
 
-        // GÜNCELLENEN PAYLOAD (Salon Adı ve Tarih da eklendi)
+        // Dosya türüne göre uygun sıkıştırma fonksiyonunu çalıştırıyoruz
+        if (file.type.startsWith('video/')) {
+          base64Data = await compressVideo(file);
+        } else {
+          base64Data = await compressImage(file);
+        }
+
         const payload = {
           slug: slug,
           fileBase64: base64Data,
           fileName: file.name,
-          mimeType: file.type.startsWith('image/') ? 'image/jpeg' : file.type || 'image/jpeg',
+          mimeType: file.type || 'image/jpeg',
           guestName: guestName || 'İsimsiz Misafir',
           retentionDays: wedding.drive_sure_gun || 30,
           salonAdi: wedding.salon_adi || '',
@@ -146,7 +196,6 @@ export default function WeddingUploadPage() {
 
       setUploading(false);
       setSuccessMessage(true);
-      setSelectedFilesRef();
       setSelectedFiles([]);
       setKvkkAccepted(false);
 
@@ -158,12 +207,10 @@ export default function WeddingUploadPage() {
 
     } catch (err) {
       console.error('Yükleme hatası:', err);
-      alert('Fotoğraflar yüklenirken bir hata oluştu!');
+      alert('Fotoğraflar veya videolar yüklenirken bir hata oluştu!');
       setUploading(false);
     }
   };
-
-  const setSelectedFilesRef = () => {};
 
   if (loading) {
     return (
@@ -190,8 +237,31 @@ export default function WeddingUploadPage() {
   const isClosed = isDateExpired || isStatusClosed;
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 font-sans relative">
       
+      {/* 🛑 TAM EKRAN YÜKLENİYOR / KAPATMAYIN UYARI OVERLAY'İ */}
+      {uploading && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-6 animate-fadeIn">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full border-4 border-rose-500/20 border-t-rose-500 animate-spin"></div>
+            <div className="absolute inset-0 flex items-center justify-center text-2xl">✨</div>
+          </div>
+          
+          <div className="space-y-2 max-w-xs">
+            <h2 className="text-xl font-bold text-white">Anılar Yükleniyor...</h2>
+            <p className="text-xs text-rose-400 font-medium">Lütfen bu sayfayı kapatmayın veya yenilemeyin!</p>
+            <p className="text-[11px] text-slate-400">Fotoğraflar ve videolar sıkıştırılıp güvenle buluta aktarılıyor ({uploadProgress}%).</p>
+          </div>
+
+          <div className="w-64 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+            <div 
+              className="h-full bg-gradient-to-r from-rose-500 to-amber-400 transition-all duration-300" 
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-md text-center space-y-3 pt-6">
         <div className="w-14 h-14 mx-auto rounded-3xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center text-2xl shadow-xl shadow-rose-500/20">💍</div>
         <div>
@@ -218,13 +288,13 @@ export default function WeddingUploadPage() {
             <div className="w-16 h-16 mx-auto bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center text-2xl animate-bounce">✨</div>
             <h3 className="text-xl font-bold text-white">Harikasınız!</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Fotoğraflarınız başarıyla havuza eklendi. Mutluluklar dileriz!
+              Fotoğraflarınız ve videolarınız başarıyla havuza eklendi. Mutluluklar dileriz!
             </p>
             <button
               onClick={() => setSuccessMessage(false)}
               className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition cursor-pointer"
             >
-              Yeni Fotoğraf Yükle
+              Yeni Medya Yükle
             </button>
           </div>
         ) : (
@@ -246,8 +316,8 @@ export default function WeddingUploadPage() {
                 <svg className="w-8 h-8 text-rose-400 mb-2 group-hover:scale-110 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-xs font-medium text-slate-300">Galeriden seçin · birden fazla dosya olabilir</span>
-                <span className="text-[10px] text-slate-500 mt-1">Tek dosya 7 GB · etkinlik 25 GB</span>
+                <span className="text-xs font-medium text-slate-300">Galeriden seçin · video ve fotoğraf</span>
+                <span className="text-[10px] text-slate-500 mt-1">Videolar otomatik optimize edilir</span>
                 <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
               </label>
             </div>
@@ -276,21 +346,9 @@ export default function WeddingUploadPage() {
                 className="mt-0.5 w-4 h-4 rounded border-slate-700 bg-slate-800 text-rose-500 focus:ring-rose-500 cursor-pointer"
               />
               <label htmlFor="kvkk" className="text-xs text-slate-400 leading-relaxed cursor-pointer">
-                <span className="text-rose-400 underline font-medium">KVKK aydınlatma metnini</span> okudum; fotoğrafımın etkinlik sahipleri tarafından görülmesine onay veriyorum.
+                <span className="text-rose-400 underline font-medium">KVKK aydınlatma metnini</span> okudum; fotoğraf ve videolarımın etkinlik sahipleri tarafından görülmesine onay veriyorum.
               </label>
             </div>
-
-            {uploading && (
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-xs text-slate-400">
-                  <span>Sıkıştırılıyor ve Yükleniyor...</span>
-                  <span>{uploadProgress}%</span>
-                </div>
-                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-rose-500 to-amber-400 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-                </div>
-              </div>
-            )}
 
             <button
               type="submit"
@@ -301,7 +359,7 @@ export default function WeddingUploadPage() {
                   : 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-rose-500/25 cursor-pointer'
               }`}
             >
-              {uploading ? 'İşleniyor...' : 'Gönder ✨'}
+              Gönder ✨
             </button>
           </form>
         )}
