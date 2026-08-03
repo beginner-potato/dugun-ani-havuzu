@@ -121,13 +121,16 @@ export default function WeddingUploadPage() {
         const file = selectedFiles[i];
         const base64Data = await compressImage(file);
 
+        // GÜNCELLENEN PAYLOAD (Salon Adı ve Tarih da eklendi)
         const payload = {
           slug: slug,
           fileBase64: base64Data,
           fileName: file.name,
           mimeType: file.type.startsWith('image/') ? 'image/jpeg' : file.type || 'image/jpeg',
           guestName: guestName || 'İsimsiz Misafir',
-          retentionDays: wedding.drive_sure_gun || 30
+          retentionDays: wedding.drive_sure_gun || 30,
+          salonAdi: wedding.salon_adi || '',
+          etkinlikTarihi: wedding.etkinlik_tarihi || ''
         };
 
         await fetch(REAL_SCRIPT_URL, {
@@ -189,7 +192,6 @@ export default function WeddingUploadPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
       
-      {/* BAŞLIK KISMI GÜNCELLENDİ */}
       <div className="w-full max-w-md text-center space-y-3 pt-6">
         <div className="w-14 h-14 mx-auto rounded-3xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center text-2xl shadow-xl shadow-rose-500/20">💍</div>
         <div>
@@ -228,7 +230,7 @@ export default function WeddingUploadPage() {
         ) : (
           <form onSubmit={handleUpload} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">İsim Soyisimsiz (İsteğe Bağlı)</label>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">İsim Soyisim (İsteğe Bağlı)</label>
               <input
                 type="text"
                 placeholder="Örn: Ayşe Yılmaz"
@@ -264,7 +266,6 @@ export default function WeddingUploadPage() {
               </div>
             )}
 
-            {/* KVKK ONAY CHECKBOX */}
             <div className="flex items-start gap-3 pt-1">
               <input
                 type="checkbox"
