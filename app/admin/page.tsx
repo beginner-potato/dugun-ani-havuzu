@@ -4,6 +4,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
+// Google Apps Script URL'si
+const REAL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOcUQIi49z6g4GJGP2DufVNibLr11FIzQkgkNVQ00NrVbb73WY6tmPFNbVcOuM8pwr/exec";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -39,6 +42,7 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [zippingSlug, setZippingSlug] = useState<string | null>(null);
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -330,6 +334,44 @@ export default function AdminDashboard() {
     showToast('📋 Link panoya kopyalandı!');
   };
 
+  // ZIP İndirme Fonksiyonu
+  const handleDownloadZip = async (wedding: Wedding) => {
+    setZippingSlug(wedding.slug);
+    showToast('📦 Fotoğraflar ZIP haline getiriliyor, lütfen bekleyin...');
+
+    try {
+      const response = await fetch(REAL_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'getZip',
+          slug: wedding.slug,
+          salonAdi: wedding.salonAdi,
+          etkinlikTarihi: wedding.etkinlikTarihi
+        })
+      });
+
+      const result = await response.json();
+      if (result.status === 'success' && result.downloadUrl) {
+        // İndirmeyi tetikle
+        const a = document.createElement('a');
+        a.href = result.downloadUrl;
+        a.download = `${wedding.slug}-fotograflar.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('⬇️ ZIP arşivi hazır! İndirme başlıyor...');
+      } else {
+        alert('Hata: ' + (result.message || 'ZIP oluşturulamadı.'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('ZIP indirilirken bir hata oluştu.');
+    } finally {
+      setZippingSlug(null);
+    }
+  };
+
   const filteredWeddings = weddings.filter((w) => {
     const searchTarget = `${w.coupleNames} ${w.etkinlikTarihi} ${w.slug}`.toLowerCase();
     const matchesSearch = searchTarget.includes(searchTerm.toLowerCase());
@@ -512,20 +554,35 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-700/50">
-                  <button onClick={() => setSelectedQrWedding(wedding)} className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-xs font-medium gap-1 cursor-pointer">
+                <div className="grid grid-cols-5 gap-2 pt-4 border-t border-slate-700/50">
+                  <button onClick={() => setSelectedQrWedding(wedding)} className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-[11px] font-medium gap-1 cursor-pointer">
                     <svg className="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
-                    QR Kart
+                    QR
                   </button>
-                  <button onClick={() => copyToClipboard(wedding.slug)} className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-xs font-medium gap-1 cursor-pointer">
+                  <button onClick={() => copyToClipboard(wedding.slug)} className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-[11px] font-medium gap-1 cursor-pointer">
                     <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                    Kopyala
+                    Kopya
                   </button>
-                  <a href={`https://drive.google.com/drive/u/0/search?q=${wedding.slug}`} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-xs font-medium gap-1">
+                  <a href={`https://drive.google.com/drive/u/0/search?q=${wedding.slug}`} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-[11px] font-medium gap-1">
                     <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" /></svg>
                     Drive
                   </a>
-                  <button onClick={() => setWeddingToDelete(wedding)} className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition text-xs font-medium gap-1 cursor-pointer">
+                  
+                  {/* --- YENİ EKLENEN ZIP BUTONU --- */}
+                  <button 
+                    onClick={() => handleDownloadZip(wedding)} 
+                    disabled={zippingSlug === wedding.slug}
+                    className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition text-[11px] font-medium gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {zippingSlug === wedding.slug ? (
+                      <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    )}
+                    {zippingSlug === wedding.slug ? 'Bekle' : 'ZİP'}
+                  </button>
+
+                  <button onClick={() => setWeddingToDelete(wedding)} className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition text-[11px] font-medium gap-1 cursor-pointer">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2.002 2.002 0 0116.138 21H7.862a2.002 2.002 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     Sil
                   </button>
