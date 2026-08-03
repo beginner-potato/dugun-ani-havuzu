@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import html2canvas from 'html2canvas';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -74,7 +73,6 @@ export default function AdminDashboard() {
       const formatted: Wedding[] = data.map((item: any) => {
         const isExpired = item.expire_at ? new Date(item.expire_at) < now : false;
         
-        // Gösterim Başlığı Mantığı (Salon varsa o, yoksa Gelin & Damat)
         let displayTitle = "Anı Havuzu";
         if (item.salon_adi) {
           displayTitle = item.salon_adi;
@@ -281,21 +279,29 @@ export default function AdminDashboard() {
     setFormId('');
   };
 
-  const downloadQR = async () => {
-    if (!qrRef.current || !selectedQrWedding) return;
+  const downloadQR = () => {
+    if (!selectedQrWedding) return;
     try {
-      const canvas = await html2canvas(qrRef.current, { 
-        scale: 3, 
-        backgroundColor: null,
-        useCORS: true, // CORS engeline takılmamak için şart
-        allowTaint: true
-      });
-      const url = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${selectedQrWedding.slug}-QR.png`;
-      a.click();
-      showToast('⬇️ QR Kartı görsellerinize indirildi!');
+      const qrImageUrl = `https://quickchart.io/qr?text=${encodeURIComponent(
+        typeof window !== 'undefined' ? `${window.location.origin}/${selectedQrWedding.slug}` : `https://dugun.app/${selectedQrWedding.slug}`
+      )}&size=600&margin=1&ecLevel=H`;
+
+      fetch(qrImageUrl)
+        .then(response => response.blob())
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${selectedQrWedding.slug}-QR.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          showToast('⬇️ QR Kod başarıyla indirildi!');
+        })
+        .catch(() => {
+          window.open(qrImageUrl, '_blank');
+        });
     } catch (err) {
       console.error(err);
       showToast('❌ İndirme başarısız oldu.');
@@ -353,6 +359,28 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans pb-10">
+      {/* Yazdırma Esnasında Sadece Kartın Görünmesini Sağlayan Stil */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #printable-qr-card, #printable-qr-card * {
+            visibility: visible !important;
+          }
+          #printable-qr-card {
+            position: absolute !important;
+            left: 50% !important;
+            top: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            width: 100% !important;
+            max-width: 400px !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+        }
+      `}</style>
+
       <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -628,7 +656,7 @@ export default function AdminDashboard() {
               <button onClick={() => setSelectedQrWedding(null)} className="text-slate-400 hover:text-white cursor-pointer">✕</button>
             </div>
 
-            <div ref={qrRef} className="w-full bg-gradient-to-b from-rose-50 to-amber-50 p-8 rounded-3xl text-slate-800 text-center shadow-xl border-[6px] border-white flex flex-col items-center space-y-5">
+            <div id="printable-qr-card" ref={qrRef} className="w-full bg-gradient-to-b from-rose-50 to-amber-50 p-8 rounded-3xl text-slate-800 text-center shadow-xl border-[6px] border-white flex flex-col items-center space-y-5">
               <div>
                 <div className="text-3xl font-serif font-bold text-rose-900 leading-tight">{selectedQrWedding.coupleNames}</div>
                 <p className="text-[10px] uppercase tracking-[0.3em] text-rose-700 font-bold mt-2">
