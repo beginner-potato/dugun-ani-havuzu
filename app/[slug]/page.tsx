@@ -47,7 +47,7 @@ const compressImage = async (file: File): Promise<string> => {
         width = MAX_SIZE;
       } else if (height > MAX_SIZE) {
         width *= MAX_SIZE / height;
-        height = MAX_SIZE;
+        height = MAX_SIZE; 
       }
 
       canvas.width = width; 
