@@ -284,7 +284,12 @@ export default function AdminDashboard() {
   const downloadQR = async () => {
     if (!qrRef.current || !selectedQrWedding) return;
     try {
-      const canvas = await html2canvas(qrRef.current, { scale: 3, backgroundColor: null });
+      const canvas = await html2canvas(qrRef.current, { 
+        scale: 3, 
+        backgroundColor: null,
+        useCORS: true, // CORS engeline takılmamak için şart
+        allowTaint: true
+      });
       const url = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = url;
@@ -631,20 +636,20 @@ export default function AdminDashboard() {
                 </p>
               </div>
 
-              <div className="p-4 bg-white rounded-3xl shadow-md border border-rose-100">
+              <div className="p-4 bg-white rounded-3xl shadow-md border border-rose-100 inline-block">
                 <img
                   src={`https://quickchart.io/qr?text=${encodeURIComponent(
                     typeof window !== 'undefined' ? `${window.location.origin}/${selectedQrWedding.slug}` : `https://dugun.app/${selectedQrWedding.slug}`
                   )}&size=300&margin=0&ecLevel=H`}
                   alt="QR Code"
-                  className="w-48 h-48 rounded-xl"
+                  className="w-48 h-48 rounded-xl block mx-auto"
                   crossOrigin="anonymous"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <p className="text-sm font-extrabold text-slate-800">📸 En Güzel Anılarınızı Paylaşın!</p>
-                <p className="text-xs text-slate-600 font-medium max-w-[240px] leading-relaxed">
+                <p className="text-xs text-slate-600 font-medium max-w-[240px] leading-relaxed mx-auto">
                   Kameranızı QR koda doğrultarak fotoğraflarınızı anında yükleyebilirsiniz.
                 </p>
               </div>
