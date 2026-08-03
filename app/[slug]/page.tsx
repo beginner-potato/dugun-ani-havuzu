@@ -165,7 +165,6 @@ export default function WeddingUploadPage() {
         const file = selectedFiles[i];
         let base64Data = "";
 
-        // Dosya türüne göre uygun sıkıştırma fonksiyonunu çalıştırıyoruz
         if (file.type.startsWith('video/')) {
           base64Data = await compressVideo(file);
         } else {
@@ -183,13 +182,34 @@ export default function WeddingUploadPage() {
           etkinlikTarihi: wedding.etkinlik_tarihi || ''
         };
 
-        await fetch(REAL_SCRIPT_URL, {
+        // 1. Google Script'e dosyayı yolla
+        const res = await fetch(REAL_SCRIPT_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'text/plain;charset=utf-8',
           },
           body: JSON.stringify(payload)
         });
+
+        const resData = await res.json();
+
+        // 2. Eğer yükleme başarılı olduysa Supabase'deki sayacı anında 1 artır!
+        if (resData.status === 'success') {
+          // Önce mevcut sayıyı çekelim
+          const { data: currentWedding } = await supabase
+            .from('dugunler')
+            .select('photo_count')
+            .eq('slug', slug)
+            .single();
+
+          const currentCount = currentWedding?.photo_count || 0;
+
+          // Yeni sayıyı Supabase'e yazalım
+          await supabase
+            .from('dugunler')
+            .update({ photo_count: currentCount + 1 })
+            .eq('slug', slug);
+        }
 
         setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
       }
