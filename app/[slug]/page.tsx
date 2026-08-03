@@ -50,7 +50,7 @@ const compressImage = async (file: File): Promise<string> => {
         height = MAX_SIZE;
       }
 
-      canvas.width = width;
+      canvas.width = width; 
       canvas.height = height;
 
       ctx.drawImage(img, 0, 0, width, height);
