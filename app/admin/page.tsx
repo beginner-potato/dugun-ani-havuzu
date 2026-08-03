@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 // Google Apps Script URL'si
-const REAL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOcUQIi49z6g4GJGP2DufVNibLr11FIzQkgkNVQ00NrVbb73WY6tmPFNbVcOuM8pwr/exec";
+const REAL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbywo6rkuXe5H0rWK7CCf4CtbI6IxXnadZlklSxT_3-nxiKNUE0qKgXBtI-joapTq69q/exec";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
