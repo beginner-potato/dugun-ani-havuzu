@@ -252,7 +252,14 @@ export default function WeddingUploadPage() {
     );
   }
 
-  const isDateExpired = wedding.expire_at ? new Date(wedding.expire_at) < new Date() : false;
+  // Tarih kontrolünü gün bazlı güvenli yapalım
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const expireDate = wedding.expire_at ? new Date(wedding.expire_at) : null;
+  if (expireDate) expireDate.setHours(0, 0, 0, 0);
+
+  const isDateExpired = expireDate ? expireDate < today : false;
   const isStatusClosed = wedding.status === 'closed' || wedding.status === 'tamamlandi' || wedding.durum === 'kapali';
   const isClosed = isDateExpired || isStatusClosed;
 
