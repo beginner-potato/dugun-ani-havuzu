@@ -143,6 +143,13 @@ export default function WeddingUploadPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
+      
+      // 🛡️ ÇÖKME KORUMASI: Maksimum 30 dosya limiti
+      if (selectedFiles.length + filesArray.length > 30) {
+        alert("🚨 Tek seferde en fazla 30 adet dosya seçebilirsiniz. Telefonunuzun donmaması için lütfen parça parça yükleyin!");
+        return;
+      }
+
       setSelectedFiles((prev) => [...prev, ...filesArray]);
     }
   };
@@ -159,7 +166,6 @@ export default function WeddingUploadPage() {
     setUploadProgress(5); 
 
     try {
-      // DEDEKTİF SİSTEMİ: Kullanıcının IP adresini ve Cihaz bilgisini çekelim
       let userIP = "Bilinmiyor";
       try {
         const ipRes = await fetch('https://api.ipify.org?format=json');
@@ -187,7 +193,6 @@ export default function WeddingUploadPage() {
 
       let completedUploads = 0;
 
-      // 2. ADIM: GOOGLE'A GÖNDERİM
       const uploadPromises = compressedFiles.map(async ({ file, base64Data }) => {
         
         const uploaderName = guestName.trim() ? guestName.trim() : 'İsimsiz Misafir';
@@ -202,7 +207,6 @@ export default function WeddingUploadPage() {
           retentionDays: wedding.drive_sure_gun || 30,
           salonAdi: wedding.salon_adi || '',
           etkinlikTarihi: wedding.etkinlik_tarihi || '',
-          // YENİ: IP ve Cihaz bilgisini payload'a ekliyoruz
           userIp: userIP,
           userAgent: userAgent
         };
@@ -342,12 +346,17 @@ export default function WeddingUploadPage() {
           <div className="text-center space-y-4 py-8">
             <div className="w-16 h-16 mx-auto bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center text-2xl animate-bounce">✨</div>
             <h3 className="text-xl font-bold text-white">Harikasınız!</h3>
+            
+            {/* 💎 VIP DOKUNUŞ: KİŞİSELLEŞTİRİLMİŞ TEŞEKKÜR MESAJI */}
             <p className="text-xs text-slate-400 leading-relaxed">
-              Fotoğraflarınız ve videolarınız başarıyla havuza eklendi. Mutluluklar dileriz!
+              {wedding.tesekkur_mesaji 
+                ? wedding.tesekkur_mesaji 
+                : "Fotoğraflarınız ve videolarınız başarıyla havuza eklendi. Mutluluklar dileriz!"}
             </p>
+            
             <button
               onClick={() => setSuccessMessage(false)}
-              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition cursor-pointer"
+              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition cursor-pointer mt-2"
             >
               Yeni Medya Yükle
             </button>
@@ -372,7 +381,7 @@ export default function WeddingUploadPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <span className="text-xs font-medium text-slate-300">Galeriden seçin · video ve fotoğraf</span>
-                <span className="text-[10px] text-slate-500 mt-1">Videolar otomatik optimize edilir</span>
+                <span className="text-[10px] text-slate-500 mt-1">Maksimum 30 adet (Aynı anda)</span>
                 <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
               </label>
             </div>
@@ -462,7 +471,6 @@ export default function WeddingUploadPage() {
                 <li>Kullanıcının isteğe bağlı olarak eklediği anı, mesaj veya notlar,</li>
                 <li>Yükleme tarihi ve saati,</li>
                 <li>Hizmetin güvenli ve düzgün şekilde çalışması için gerekli teknik kayıtlar ve log bilgileri,</li>
-                {/* YENİ EKLENEN MADDE */}
                 <li className="text-white font-medium">Cihazınızın IP adresi ve tarayıcı/cihaz tanımlayıcı bilgileri (User-Agent).</li>
               </ul>
 
@@ -490,7 +498,6 @@ export default function WeddingUploadPage() {
                 Bununla birlikte, internet üzerinden gerçekleştirilen veri aktarım ve depolama işlemlerinde mutlak güvenliğin garanti edilemeyeceğini belirtmek isteriz.
               </p>
 
-              {/* YENİ EKLENEN KÖTÜYE KULLANIM MADDESİ */}
               <h4 className="font-bold text-rose-500 text-[13px] mt-4 mb-1">Kötüye Kullanım ve Yasal Sorumluluk (Önemli)</h4>
               <p>
                 Sistemimizin güvenliğini sağlamak; yasa dışı, genel ahlaka aykırı, müstehcen veya kişilik haklarına saldırı niteliği taşıyan uygunsuz içeriklerin yüklenmesini engellemek amacıyla <strong className="text-rose-400">kullanıcıların IP adresleri, cihaz/tarayıcı bilgileri ve yükleme zamanı</strong> kayıt altına alınarak ilgili medya dosyasıyla eşleştirilmektedir.
