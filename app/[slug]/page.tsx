@@ -120,6 +120,9 @@ export default function WeddingUploadPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [successMessage, setSuccessMessage] = useState(false);
+  
+  // YENİ: KVKK Modalı açık/kapalı durumu (Adım 1)
+  const [isKvkkModalOpen, setIsKvkkModalOpen] = useState(false);
 
   useEffect(() => {
     if (slug) {
@@ -373,7 +376,14 @@ export default function WeddingUploadPage() {
                 className="mt-0.5 w-4 h-4 rounded border-slate-700 bg-slate-800 text-rose-500 focus:ring-rose-500 cursor-pointer"
               />
               <label htmlFor="kvkk" className="text-xs text-slate-400 leading-relaxed cursor-pointer">
-                <span className="text-rose-400 underline font-medium">KVKK aydınlatma metnini</span> okudum; fotoğraf ve videolarımın etkinlik sahipleri tarafından görülmesine onay veriyorum.
+                {/* YENİ: Yazı Tıklanabilir Yapıldı (Adım 2) */}
+                <span 
+                  onClick={(e) => { e.preventDefault(); setIsKvkkModalOpen(true); }}
+                  className="text-rose-400 underline font-medium hover:text-rose-300 transition"
+                >
+                  KVKK aydınlatma metnini
+                </span>{' '}
+                okudum; fotoğraf ve videolarımın etkinlik sahipleri tarafından görülmesine onay veriyorum.
               </label>
             </div>
 
@@ -393,6 +403,98 @@ export default function WeddingUploadPage() {
       </div>
 
       <footer className="text-center text-[11px] text-slate-500 pb-4">Etkinlik Anı Havuzu Sistemi ✨</footer>
+
+      {/* YENİ: KVKK Aydınlatma Metni Modalı (Adım 3) */}
+      {isKvkkModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 w-full max-w-lg max-h-[85vh] shadow-2xl flex flex-col">
+            
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+              <h3 className="font-bold text-white text-lg">KVKK Aydınlatma Metni</h3>
+              <button 
+                onClick={() => setIsKvkkModalOpen(false)} 
+                className="text-slate-400 hover:text-white transition p-1 cursor-pointer bg-slate-800 rounded-full w-8 h-8 flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-y-auto space-y-4 pr-2 text-xs text-slate-300 leading-relaxed">
+              <p className="text-[11px] text-rose-400 font-semibold mb-2">Son Güncelleme: Haziran 2026</p>
+              
+              <p>
+                Misafir Günlüğü olarak, kullanıcıların etkinliklerde fotoğraf, video ve anılarını dijital olarak paylaşabilmelerini sağlayan QR kodlu anı albümü hizmeti sunmaktayız. Bu hizmet kapsamında paylaşılan kişisel verilerin gizliliğine ve güvenliğine önem veriyoruz.
+              </p>
+
+              <h4 className="font-bold text-white text-[13px] mt-4 mb-1">Veri Sorumlusu</h4>
+              <p>
+                Misafir Günlüğü hizmeti kapsamında yüklenen kişisel veriler, ilgili etkinliğin sahibi veya hizmeti sunan işletme tarafından, 6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) kapsamında işlenmektedir.
+              </p>
+
+              <h4 className="font-bold text-white text-[13px] mt-4 mb-1">İşlenen Kişisel Veriler</h4>
+              <p>Misafir Günlüğü üzerinden gerçekleştirilen paylaşımlar kapsamında aşağıdaki veriler işlenebilir:</p>
+              <ul className="list-disc pl-5 space-y-1 text-slate-400">
+                <li>Fotoğraf ve video içerikleri,</li>
+                <li>Kullanıcının isteğine bağlı olarak paylaştığı ad veya isim bilgisi,</li>
+                <li>Kullanıcının isteğe bağlı olarak eklediği anı, mesaj veya notlar,</li>
+                <li>Yükleme tarihi ve saati,</li>
+                <li>Hizmetin güvenli ve düzgün şekilde çalışması için gerekli teknik kayıtlar ve log bilgileri.</li>
+              </ul>
+
+              <h4 className="font-bold text-white text-[13px] mt-4 mb-1">Kişisel Verilerin İşlenme Amacı</h4>
+              <p>
+                Paylaşılan veriler; ilgili etkinliğe ait dijital anı albümünün oluşturulması, içeriklerin etkinlik sahibi ve yetkilendirdiği kişiler tarafından görüntülenebilmesi ve hizmetin güvenli ve sağlıklı şekilde sunulabilmesi amacıyla işlenmektedir.
+              </p>
+              <p>
+                Kişisel veriler, belirtilen amaçların dışında kullanılmaz ve üçüncü kişilere pazarlama veya reklam amacıyla satılmaz.
+              </p>
+
+              <h4 className="font-bold text-white text-[13px] mt-4 mb-1">Verilerin Saklanma Süresi</h4>
+              <p>
+                Yüklenen fotoğraf, video ve diğer içerikler, tercih edilen Misafir Günlüğü paketine bağlı olarak 7 gün veya 30 gün süreyle sistemde saklanır.
+              </p>
+              <p>
+                Belirlenen saklama süresinin sonunda içerikler sistem tarafından otomatik olarak silinir. Etkinlik sahibi, saklama süresi içerisinde içerikleri indirebilir veya gerekli durumlarda silinmesini talep edebilir.
+              </p>
+
+              <h4 className="font-bold text-white text-[13px] mt-4 mb-1">Kişisel Verilerin Güvenliği</h4>
+              <p>
+                Misafir Günlüğü, hizmet kapsamında işlenen kişisel verilerin yetkisiz erişime, kayba veya hukuka aykırı kullanıma karşı korunması için gerekli teknik ve idari tedbirlerin alınmasına önem vermektedir.
+              </p>
+              <p>
+                Bununla birlikte, internet üzerinden gerçekleştirilen veri aktarım ve depolama işlemlerinde mutlak güvenliğin garanti edilemeyeceğini belirtmek isteriz.
+              </p>
+
+              <h4 className="font-bold text-white text-[13px] mt-4 mb-1">KVKK Kapsamındaki Haklarınız</h4>
+              <p>
+                6698 sayılı Kişisel Verilerin Korunması Kanunu’nun 11. maddesi kapsamında; kişisel verilerinizin işlenip işlenmediğini öğrenme, işlenmişse buna ilişkin bilgi talep etme, verilerinizin düzeltilmesini veya kanuni şartlar çerçevesinde silinmesini isteme ve kanunda belirtilen diğer haklarınızı kullanma hakkına sahipsiniz.
+              </p>
+              <p>
+                Bu kapsamda taleplerinizi etkinlik sahibi veya Misafir Günlüğü hizmet sağlayıcısı üzerinden iletebilirsiniz.
+              </p>
+
+              <h4 className="font-bold text-white text-[13px] mt-4 mb-1">Fotoğraf ve Video Yükleme Onayı</h4>
+              <p>
+                Fotoğraf veya video yükleme ekranında yer alan onay kutusunu işaretleyerek, bu Aydınlatma Metni'ni okuduğunuzu ve kişisel verilerinizin burada belirtilen amaçlar doğrultusunda işlenmesine ilişkin bilgilendirildiğinizi kabul etmiş olursunuz.
+              </p>
+              <p className="text-[10px] text-slate-500 italic mt-2">
+                Not: Kişisel verilerin işlenmesine ilişkin açık rıza gerektiren durumlarda, ilgili rıza ayrıca ve açık şekilde alınır.
+              </p>
+            </div>
+
+            <div className="pt-5 mt-2 border-t border-slate-800">
+              <button 
+                onClick={() => setIsKvkkModalOpen(false)} 
+                className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm transition cursor-pointer"
+              >
+                Anladım, Kapat
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
