@@ -116,6 +116,7 @@ export default function WeddingUploadPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [successMessage, setSuccessMessage] = useState(false);
+  
   const [isKvkkModalOpen, setIsKvkkModalOpen] = useState(false);
 
   useEffect(() => {
@@ -158,7 +159,6 @@ export default function WeddingUploadPage() {
     setUploadProgress(5); 
 
     try {
-      // 1. ADIM: PARALEL SIKIŞTIRMA (Önceki adımda yapmıştık)
       const compressedFiles = await Promise.all(
         selectedFiles.map(async (file) => {
           let base64Data = "";
@@ -171,19 +171,23 @@ export default function WeddingUploadPage() {
         })
       );
 
-      setUploadProgress(25); // Sıkıştırma bitti
+      setUploadProgress(25); 
 
       let completedUploads = 0;
 
-      // 2. ADIM: GOOGLE'A PARALEL (AYNI ANDA) GÖNDERİM
-      // for döngüsü yerine hepsini aynı saniyede ateşliyoruz!
+      // 2. ADIM: GOOGLE'A GÖNDERİM
       const uploadPromises = compressedFiles.map(async ({ file, base64Data }) => {
+        
+        // YENİ: Yükleyenin ismini dosya adına ekliyoruz!
+        const uploaderName = guestName.trim() ? guestName.trim() : 'İsimsiz Misafir';
+        const finalFileName = `${uploaderName} - ${file.name}`;
+
         const payload = {
           slug: slug,
           fileBase64: base64Data,
-          fileName: file.name,
+          fileName: finalFileName, // Artık dosya adı isimle başlıyor!
           mimeType: file.type || 'image/jpeg',
-          guestName: guestName || 'İsimsiz Misafir',
+          guestName: uploaderName,
           retentionDays: wedding.drive_sure_gun || 30,
           salonAdi: wedding.salon_adi || '',
           etkinlikTarihi: wedding.etkinlik_tarihi || ''
@@ -199,20 +203,15 @@ export default function WeddingUploadPage() {
 
         const resData = await res.json();
         
-        // Her dosya başarıyla gittiğinde progress bar'ı anlık güncelle
         completedUploads++;
         setUploadProgress(25 + Math.round((completedUploads / compressedFiles.length) * 65));
 
         return resData.status === 'success';
       });
 
-      // Bütün paralel gönderimlerin bitmesini bekle
       const results = await Promise.all(uploadPromises);
-      
-      // Kaç tanesi başarılı oldu hesapla
       const successCount = results.filter(status => status === true).length;
 
-      // 3. ADIM: SUPABASE'E TEK SEFERDE YAZ
       if (successCount > 0) {
         setUploadProgress(95); 
 
@@ -230,7 +229,6 @@ export default function WeddingUploadPage() {
           .eq('slug', slug);
       }
 
-      // 4. ADIM: BİTİR
       setUploadProgress(100);
       setUploading(false);
       setSuccessMessage(true);
