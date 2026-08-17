@@ -121,7 +121,7 @@ export default function WeddingUploadPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [successMessage, setSuccessMessage] = useState(false);
   
-  // YENİ: KVKK Modalı açık/kapalı durumu (Adım 1)
+  // KVKK Modalı açık/kapalı durumu
   const [isKvkkModalOpen, setIsKvkkModalOpen] = useState(false);
 
   useEffect(() => {
@@ -156,23 +156,35 @@ export default function WeddingUploadPage() {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // YENİ ROKET GİBİ ÇALIŞAN UPLOAD SİSTEMİ
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedFiles.length === 0 || !kvkkAccepted) return;
 
     setUploading(true);
-    setUploadProgress(10);
+    setUploadProgress(5); // Başlangıç animasyonu
 
     try {
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        let base64Data = "";
+      // 1. ADIM: BÜTÜN DOSYALARI AYNI ANDA (PARALEL) SIKIŞTIR
+      const compressedFiles = await Promise.all(
+        selectedFiles.map(async (file) => {
+          let base64Data = "";
+          if (file.type.startsWith('video/')) {
+            base64Data = await compressVideo(file);
+          } else {
+            base64Data = await compressImage(file);
+          }
+          return { file, base64Data };
+        })
+      );
 
-        if (file.type.startsWith('video/')) {
-          base64Data = await compressVideo(file);
-        } else {
-          base64Data = await compressImage(file);
-        }
+      setUploadProgress(25); // Sıkıştırmalar bitti, hızlıca %25'e atla
+
+      let successCount = 0;
+
+      // 2. ADIM: GOOGLE SCRIPT'E SERİ GÖNDERİM
+      for (let i = 0; i < compressedFiles.length; i++) {
+        const { file, base64Data } = compressedFiles[i];
 
         const payload = {
           slug: slug,
@@ -185,7 +197,6 @@ export default function WeddingUploadPage() {
           etkinlikTarihi: wedding.etkinlik_tarihi || ''
         };
 
-        // 1. Google Script'e dosyayı yolla
         const res = await fetch(REAL_SCRIPT_URL, {
           method: 'POST',
           headers: {
@@ -195,36 +206,42 @@ export default function WeddingUploadPage() {
         });
 
         const resData = await res.json();
-
-        // 2. Eğer yükleme başarılı olduysa Supabase'deki sayacı anında 1 artır!
         if (resData.status === 'success') {
-          // Önce mevcut sayıyı çekelim
-          const { data: currentWedding } = await supabase
-            .from('dugunler')
-            .select('photo_count')
-            .eq('slug', slug)
-            .single();
-
-          const currentCount = currentWedding?.photo_count || 0;
-
-          // Yeni sayıyı Supabase'e yazalım
-          await supabase
-            .from('dugunler')
-            .update({ photo_count: currentCount + 1 })
-            .eq('slug', slug);
+          successCount++;
         }
 
-        setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
+        // İlerlemeyi 25 ile 90 arasında dinamik artır
+        setUploadProgress(25 + Math.round(((i + 1) / compressedFiles.length) * 65));
       }
 
+      // 3. ADIM: SUPABASE'E TEK SEFERDE BAĞLAN (Her fotoğrafta 1 saniye kazanç)
+      if (successCount > 0) {
+        setUploadProgress(95); // Veritabanı yazılıyor
+
+        const { data: currentWedding } = await supabase
+          .from('dugunler')
+          .select('photo_count')
+          .eq('slug', slug)
+          .single();
+
+        const currentCount = currentWedding?.photo_count || 0;
+
+        await supabase
+          .from('dugunler')
+          .update({ photo_count: currentCount + successCount })
+          .eq('slug', slug);
+      }
+
+      // 4. ADIM: MUTLU SON
+      setUploadProgress(100);
       setUploading(false);
       setSuccessMessage(true);
       setSelectedFiles([]);
       setKvkkAccepted(false);
 
       confetti({
-        particleCount: 100,
-        spread: 70,
+        particleCount: 120,
+        spread: 80,
         origin: { y: 0.6 }
       });
 
@@ -376,7 +393,6 @@ export default function WeddingUploadPage() {
                 className="mt-0.5 w-4 h-4 rounded border-slate-700 bg-slate-800 text-rose-500 focus:ring-rose-500 cursor-pointer"
               />
               <label htmlFor="kvkk" className="text-xs text-slate-400 leading-relaxed cursor-pointer">
-                {/* YENİ: Yazı Tıklanabilir Yapıldı (Adım 2) */}
                 <span 
                   onClick={(e) => { e.preventDefault(); setIsKvkkModalOpen(true); }}
                   className="text-rose-400 underline font-medium hover:text-rose-300 transition"
@@ -404,7 +420,7 @@ export default function WeddingUploadPage() {
 
       <footer className="text-center text-[11px] text-slate-500 pb-4">Etkinlik Anı Havuzu Sistemi ✨</footer>
 
-      {/* YENİ: KVKK Aydınlatma Metni Modalı (Adım 3) */}
+      {/* KVKK Aydınlatma Metni Modalı */}
       {isKvkkModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 w-full max-w-lg max-h-[85vh] shadow-2xl flex flex-col">
@@ -419,7 +435,7 @@ export default function WeddingUploadPage() {
               </button>
             </div>
 
-            <div className="overflow-y-auto space-y-4 pr-2 text-xs text-slate-300 leading-relaxed">
+            <div className="overflow-y-auto space-y-4 pr-2 text-xs text-slate-300 leading-relaxed custom-scrollbar">
               <p className="text-[11px] text-rose-400 font-semibold mb-2">Son Güncelleme: Haziran 2026</p>
               
               <p>
