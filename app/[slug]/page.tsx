@@ -159,6 +159,18 @@ export default function WeddingUploadPage() {
     setUploadProgress(5); 
 
     try {
+      // DEDEKTİF SİSTEMİ: Kullanıcının IP adresini ve Cihaz bilgisini çekelim
+      let userIP = "Bilinmiyor";
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipRes.json();
+        userIP = ipData.ip;
+      } catch (e) {
+        console.log("IP alınamadı");
+      }
+      
+      const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : 'Bilinmiyor';
+
       const compressedFiles = await Promise.all(
         selectedFiles.map(async (file) => {
           let base64Data = "";
@@ -178,19 +190,21 @@ export default function WeddingUploadPage() {
       // 2. ADIM: GOOGLE'A GÖNDERİM
       const uploadPromises = compressedFiles.map(async ({ file, base64Data }) => {
         
-        // YENİ: Yükleyenin ismini dosya adına ekliyoruz!
         const uploaderName = guestName.trim() ? guestName.trim() : 'İsimsiz Misafir';
         const finalFileName = `${uploaderName} - ${file.name}`;
 
         const payload = {
           slug: slug,
           fileBase64: base64Data,
-          fileName: finalFileName, // Artık dosya adı isimle başlıyor!
+          fileName: finalFileName, 
           mimeType: file.type || 'image/jpeg',
           guestName: uploaderName,
           retentionDays: wedding.drive_sure_gun || 30,
           salonAdi: wedding.salon_adi || '',
-          etkinlikTarihi: wedding.etkinlik_tarihi || ''
+          etkinlikTarihi: wedding.etkinlik_tarihi || '',
+          // YENİ: IP ve Cihaz bilgisini payload'a ekliyoruz
+          userIp: userIP,
+          userAgent: userAgent
         };
 
         const res = await fetch(REAL_SCRIPT_URL, {
@@ -447,7 +461,9 @@ export default function WeddingUploadPage() {
                 <li>Kullanıcının isteğine bağlı olarak paylaştığı ad veya isim bilgisi,</li>
                 <li>Kullanıcının isteğe bağlı olarak eklediği anı, mesaj veya notlar,</li>
                 <li>Yükleme tarihi ve saati,</li>
-                <li>Hizmetin güvenli ve düzgün şekilde çalışması için gerekli teknik kayıtlar ve log bilgileri.</li>
+                <li>Hizmetin güvenli ve düzgün şekilde çalışması için gerekli teknik kayıtlar ve log bilgileri,</li>
+                {/* YENİ EKLENEN MADDE */}
+                <li className="text-white font-medium">Cihazınızın IP adresi ve tarayıcı/cihaz tanımlayıcı bilgileri (User-Agent).</li>
               </ul>
 
               <h4 className="font-bold text-white text-[13px] mt-4 mb-1">Kişisel Verilerin İşlenme Amacı</h4>
@@ -472,6 +488,15 @@ export default function WeddingUploadPage() {
               </p>
               <p>
                 Bununla birlikte, internet üzerinden gerçekleştirilen veri aktarım ve depolama işlemlerinde mutlak güvenliğin garanti edilemeyeceğini belirtmek isteriz.
+              </p>
+
+              {/* YENİ EKLENEN KÖTÜYE KULLANIM MADDESİ */}
+              <h4 className="font-bold text-rose-500 text-[13px] mt-4 mb-1">Kötüye Kullanım ve Yasal Sorumluluk (Önemli)</h4>
+              <p>
+                Sistemimizin güvenliğini sağlamak; yasa dışı, genel ahlaka aykırı, müstehcen veya kişilik haklarına saldırı niteliği taşıyan uygunsuz içeriklerin yüklenmesini engellemek amacıyla <strong className="text-rose-400">kullanıcıların IP adresleri, cihaz/tarayıcı bilgileri ve yükleme zamanı</strong> kayıt altına alınarak ilgili medya dosyasıyla eşleştirilmektedir.
+              </p>
+              <p>
+                Sisteme kasıtlı olarak uygunsuz içerik yüklenmesi halinde; etkinlik sahibinin şikayeti üzerine tespit edilen dijital ayak izi bilgileri, yasal işlem başlatılmak üzere <strong className="text-rose-400">doğrudan adli makamlarla</strong> paylaşılacaktır. İçeriğin yasal sorumluluğu tamamen yükleyen kişiye aittir.
               </p>
 
               <h4 className="font-bold text-white text-[13px] mt-4 mb-1">KVKK Kapsamındaki Haklarınız</h4>
